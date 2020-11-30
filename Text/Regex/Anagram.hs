@@ -13,7 +13,7 @@ import           Data.CaseInsensitive (CI, FoldCase(..), foldedCase)
 import           Data.Foldable (fold, foldlM)
 import qualified Data.IntMap.Strict as M
 import qualified Data.IntSet as S
-import           Data.Maybe (isJust)
+import           Data.Maybe (isJust, mapMaybe)
 import           Data.Ord (comparing)
 import           Data.Semigroup (stimes)
 import qualified Data.Set as Set
@@ -27,6 +27,29 @@ foldMapM f = foldlM (\b a -> (b <>) <$> f a) mempty
 concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
 -- concatMapM = foldMapM
 concatMapM f = fmap concat . mapM f
+
+data Inf a
+  = Fin !a
+  | Inf
+  deriving (Eq, Ord, Show)
+
+-- we don't really use this whole instance
+instance (Eq a, Num a) => Num (Inf a) where
+  Fin a + Fin b = Fin $ a + b
+  Inf + _ = Inf
+  _ + Inf = Inf
+  Fin a * Fin b = Fin $ a * b
+  Inf * Fin 0 = Fin 0
+  Inf * _ = Inf
+  Fin 0 * Inf = Fin 0
+  _ * Inf = Inf
+  abs (Fin a) = Fin a
+  abs Inf = Inf
+  signum (Fin a) = Fin (signum a)
+  signum Inf = Fin 1
+  negate (Fin a) = Fin (negate a)
+  negate Inf = error "negate Inf"
+  fromInteger = Fin . fromInteger
 
 -- |We use Int for all Chars, mainly to use IntSet.
 type Chr = Int
@@ -45,20 +68,19 @@ data PatChar
   = PatChr !Chr -- ^literal single character
   | PatSet ChrSet -- ^one of a set "[a-z]"
   | PatNot ChrSet -- ^not one of a set "[^a-z]"
-  deriving (Eq)
+  deriving (Eq, Show)
 
 instance Semigroup PatChar where
-  PatSet s <> x | S.null s = x
-  x <> PatSet s | S.null s = x
-  PatChr c <> PatChr d = PatSet (S.fromList [c,d])
-  PatChr c <> PatSet s = PatSet (S.insert c s)
+  PatSet s <> x | S.null s = x -- opt
   PatSet s <> PatChr c = PatSet (S.insert c s)
   PatSet s <> PatSet t = PatSet (S.union s t)
-  PatChr c <> PatNot n = PatNot (S.delete c n)
-  PatNot n <> PatChr c = PatNot (S.delete c n)
   PatSet s <> PatNot n = PatNot (S.difference n s)
-  PatNot n <> PatSet s = PatNot (S.difference n s)
+  PatChr c <> PatChr d
+    | c == d = PatChr c
+    | otherwise = PatSet (S.fromList [c,d])
+  PatChr c <> PatNot n = PatNot (S.delete c n)
   PatNot n <> PatNot m = PatNot (S.intersection n m)
+  a <> b = b <> a
 
 instance Monoid PatChar where
   mempty = PatSet S.empty
@@ -72,31 +94,64 @@ instance Ord PatChar where
   compare (PatSet _) (PatNot _) = LT
   compare (PatNot _) (PatSet _) = GT
 
+nullChar :: PatChar -> Bool
+nullChar (PatSet s) = S.null s
+nullChar _ = False
+
+notChar :: PatChar -> PatChar
+notChar (PatChr c) = PatNot (S.singleton c)
+notChar (PatSet s) = PatNot s
+notChar (PatNot s) = PatSet s
+
+intersectChar :: PatChar -> PatChar -> PatChar
+intersectChar p@(PatChr c) (PatChr d)
+  | c == d = p
+  | otherwise = mempty
+intersectChar p@(PatChr c) (PatSet s)
+  | S.member c s = p
+  | otherwise = mempty
+intersectChar p@(PatChr c) (PatNot n)
+  | S.member c n = mempty
+  | otherwise = p
+intersectChar (PatSet s) (PatSet t) = PatSet $ S.intersection s t
+intersectChar (PatSet s) (PatNot n) = PatSet $ S.difference s n
+intersectChar (PatNot n) (PatNot m) = PatSet $ S.union n m
+intersectChar a b = intersectChar b a
+
+_differenceChar :: PatChar -> PatChar -> PatChar
+_differenceChar a b = intersectChar a (notChar b)
+
 data Pat = Pat
   { patChars :: ChrStr -- ^required fixed chars (grouped 'PatChr')
   , patSets :: [PatChar] -- ^other requried sets (no 'PatChr')
   , patOpts :: [PatChar] -- ^optional chars (x?)
   , patStars :: PatChar -- ^extra chars (x*)
-  }
+  , patMin :: Int -- ^minimum length (optimization)
+  , patMax :: Inf Int -- ^maximum length (optimization)
+  } deriving (Show)
 
 instance Semigroup Pat where
-  Pat a1 l1 o1 e1 <> Pat a2 l2 o2 e2 =
-    Pat (M.unionWith (+) a1 a2) (l1 ++ l2) (o1 ++ o2) (e1 <> e2)
-  stimes i (Pat a l o e) = Pat (fmap (fromIntegral i*) a) (stimes i l) (stimes i o) e
+  Pat a1 l1 o1 e1 i1 j1 <> Pat a2 l2 o2 e2 i2 j2 =
+    Pat (M.unionWith (+) a1 a2) (l1 ++ l2) (o1 ++ o2) (e1 <> e2) (i1 + i2) (j1 + j2)
+  stimes n (Pat a l o e i j) = Pat (fmap (n'*) a) (stimes n l) (stimes n o) e (n'*i) (Fin n'*j)
+    where n' = fromIntegral n
 
 instance Monoid Pat where
-  mempty = Pat M.empty [] [] mempty
+  mempty = Pat M.empty [] [] mempty 0 0
 
 -- |A processed regular expression pattern to match anagrams.
 -- Represented as an (expanded) list of alternative 'Pat's.
 newtype Anagrex = Anagrex [Pat]
+  deriving (Show)
+
+-- parsing
 
 unChars :: ChrStr -> [PatChar]
 unChars = concatMap (uncurry $ flip replicate . PatChr) . M.toList where
 
 charPat :: PatChar -> Pat
-charPat (PatChr c) = mempty{ patChars = M.fromList [(c,1)] }
-charPat p = mempty{ patSets = [p] }
+charPat (PatChr c) = mempty{ patChars = M.fromList [(c,1)], patMin = 1, patMax = 1 }
+charPat p = mempty{ patSets = [p], patMin = 1, patMax = 1 }
 
 makeChar :: R.Pattern -> Maybe PatChar
 makeChar R.PDot{} = return $ PatNot S.empty
@@ -123,19 +178,19 @@ makePattern (R.POr [r]) = makePattern r
 makePattern (R.PConcat l) = foldMapM makePattern l
 makePattern (R.PQuest r) = do
   p <- makePattern r
-  return mempty{ patOpts = questPat p, patStars = patStars p }
+  return mempty{ patOpts = questPat p, patStars = patStars p, patMax = patMax p }
 makePattern (R.PPlus r) = do
   p <- makePattern r
-  return p{ patStars = starPat p }
+  return p{ patStars = starPat p, patMax = Inf * patMax p }
 makePattern (R.PStar _ r) = do
   p <- makePattern r
-  return mempty{ patStars = starPat p }
+  return mempty{ patStars = starPat p, patMax = Inf * patMax p }
 makePattern (R.PBound i j' r) = do
   p <- makePattern r
   let ip = stimes i p
   return $ maybe
-    ip{ patStars = starPat p }
-    (\j -> ip{ patOpts = patOpts ip ++ stimes (j - i) (questPat p) })
+    ip{ patStars = starPat p, patMax = Inf * patMax p }
+    (\j -> ip{ patOpts = patOpts ip ++ stimes (j - i) (questPat p), patMax = patMax ip + Fin (j - i) * patMax p })
     j'
 makePattern R.PEmpty = return mempty
 makePattern r = charPat <$> makeChar r
@@ -152,12 +207,28 @@ makeAlts (R.PConcat c) = cross <$> mapM makeAlts c where
     return (a <> b)
 makeAlts r = return <$> makePattern r
 
+-- optimization
+
+-- |Remove everything in patStars from patOpts
+filterStar :: Pat -> Pat
+filterStar p@Pat{..} = p
+  { patOpts = mapMaybe (mfilter (not . nullChar) . Just . intersectChar (notChar patStars)) patOpts
+  }
+
+optimizePat :: Pat -> Pat
+optimizePat = filterStar
+
+optimizeAlts :: [Pat] -> [Pat]
+optimizeAlts = map optimizePat
+
 -- |Parse a string as a regular expression for matching anagrams, returning 'Left' error for invalid or unsupported regular expressions.  (Uses 'R.parseRegex'.)
 parseAnagrex :: String -> Either String Anagrex
 parseAnagrex r = case R.parseRegex r of
   Left e -> Left (show e)
-  Right (p, _) -> maybe (Left "regexp contains features not supported for anagrams") (Right . Anagrex) $
-    makeAlts $ R.dfsPattern R.simplify' p
+  Right (p, _) -> maybe (Left "regexp contains features not supported for anagrams")
+    (Right . Anagrex . optimizeAlts) $ makeAlts $ R.dfsPattern R.simplify' p
+
+-- testing
 
 maybePred :: Int -> Maybe Int
 maybePred i
@@ -188,16 +259,19 @@ takeChars (PatChr c) m = M.delete c m
 takeChars (PatSet s) m = M.withoutKeys m s
 takeChars (PatNot s) m = M.restrictKeys m s
 
-testPat :: Pat -> ChrStr -> Bool
-testPat (Pat a l o e) m0 = any M.null $ do
-  ma <- subtractStr' m0 a
-  ml <- foldM (       flip takeChar)     ma l
-  mo <- foldM (\m c -> m : takeChar c m) ml o
-  return $ takeChars e mo
+testPat :: Int -> ChrStr -> Pat -> Bool
+testPat l m0 Pat{..}
+  | l < patMin = False
+  | Fin l > patMax = False
+  | otherwise = any M.null $ do
+  ma <- subtractStr' m0 patChars
+  ml <- foldM (       flip takeChar)     ma patSets
+  mo <- foldM (\m c -> m : takeChar c m) ml patOpts
+  return $ takeChars patStars mo
 
 -- |Check if any permutations of a string matches a parsed regular expression.  Always matches the full string.
 testAnagrex :: Anagrex -> String -> Bool
-testAnagrex (Anagrex l) s = any (flip testPat $ chrStr s) l
+testAnagrex (Anagrex l) s = any (testPat (length s) (chrStr s)) l
 
 foldCaseChr :: Chr -> Chr
 foldCaseChr c = fromEnum (foldCase (toEnum c :: Char))
@@ -208,11 +282,12 @@ instance FoldCase PatChar where
   foldCase (PatNot s) = PatNot (S.map foldCaseChr s)
 
 instance FoldCase Pat where
-  foldCase (Pat a l o e) = Pat
-    (M.mapKeysWith (+) foldCaseChr a)
-    (map foldCase l)
-    (map foldCase o)
-    (foldCase e)
+  foldCase p@Pat{..} = p
+    { patChars = M.mapKeysWith (+) foldCaseChr patChars
+    , patSets = map foldCase patSets
+    , patOpts = map foldCase patOpts
+    , patStars = foldCase patStars
+    }
 
 instance FoldCase Anagrex where
   foldCase (Anagrex l) = Anagrex (map foldCase l)

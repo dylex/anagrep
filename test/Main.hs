@@ -21,6 +21,12 @@ tests =
       ["","a","bb","ba"])
   , ("[^a-d]*", ["ee","xyz",""],
       ["a","xa","fce"])
+  , ("[^a][^ab][^abc]", ["bcd","cde","xyz","ccd"],
+      ["","a","ab","abc","aaa","bbb","ccc"])
+  , ("[abc]?[ab]?a?", ["","a","b","c","aa","ab","ba","ac","ca","aaa","abc","cab"],
+      ["bbc","abcabcabcabc","aaaaa","abcdefg","x"])
+  , ("[a-m]{1,10}", ["a","b","m","cde","abcdefghij","cdfmeadljb","eeeeeeeeee","aaaabbb"], -- slow!
+      ["","xyz","abcdefghix","abcdefghijklm","abcdefghijklm","aabbccddeeffgghhiijj","abcx"])
   ]
 
 totals :: [(String, [String])]
@@ -57,7 +63,7 @@ parse :: String -> (Anagrex -> Spec) -> Spec
 parse r t = describe ("pattern " ++ show r) $ do
   let pp = parseAnagrex r
       Right p = pp
-  it "should parse" $ const () <$> pp `shouldSatisfy` isRight
+  it "should parse" $ pp `shouldSatisfy` isRight
   t p
 
 main :: IO ()

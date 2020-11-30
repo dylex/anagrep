@@ -9,9 +9,6 @@ import           System.IO (hPutStrLn, stderr)
 
 import Text.Regex.Anagram
 
--- TODO: string (unicode), caseins
---
-
 data Opts = Opts
   { optText, optCI :: Bool }
 

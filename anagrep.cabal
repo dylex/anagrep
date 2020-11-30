@@ -20,6 +20,12 @@ source-repository head
 library
   exposed-modules:
     Text.Regex.Anagram
+  other-modules:
+    Text.Regex.Anagram.Types
+    Text.Regex.Anagram.Util
+    Text.Regex.Anagram.Parse
+    Text.Regex.Anagram.Optimize
+    Text.Regex.Anagram.Test
   build-depends:       
     base < 5,
     containers,

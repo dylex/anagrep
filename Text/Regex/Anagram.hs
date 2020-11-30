@@ -246,13 +246,13 @@ subtractStr' a b = mfilter (all (0 <)) $ return $ subtractStr a b
 subtractEach :: ChrStr -> M.IntMap a -> [ChrStr]
 subtractEach m = map (\c -> M.update maybePred c m) . M.keys
 
-takeChar :: PatChar -> ChrStr -> [ChrStr]
-takeChar (PatChr c) m
+takeChar :: ChrStr -> PatChar -> [ChrStr]
+takeChar m (PatChr c)
   | isJust j = [m']
   | otherwise = [] where
   (j, m') = M.updateLookupWithKey (\_ -> maybePred) c m
-takeChar (PatSet s) m = subtractEach m $ M.restrictKeys m s
-takeChar (PatNot s) m = subtractEach m $ M.withoutKeys  m s
+takeChar m (PatSet s) = subtractEach m $ M.restrictKeys m s
+takeChar m (PatNot s) = subtractEach m $ M.withoutKeys  m s
 
 takeChars :: PatChar -> M.IntMap a -> M.IntMap a
 takeChars (PatChr c) m = M.delete c m
@@ -265,8 +265,8 @@ testPat l m0 Pat{..}
   | Fin l > patMax = False
   | otherwise = any M.null $ do
   ma <- subtractStr' m0 patChars
-  ml <- foldM (       flip takeChar)     ma patSets
-  mo <- foldM (\m c -> m : takeChar c m) ml patOpts
+  ml <- foldM (                 takeChar)   ma patSets
+  mo <- foldM (\m -> (++ [m]) . takeChar m) ml patOpts
   return $ takeChars patStars mo
 
 -- |Check if any permutations of a string matches a parsed regular expression.  Always matches the full string.

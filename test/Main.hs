@@ -25,8 +25,10 @@ tests =
       ["","a","ab","abc","aaa","bbb","ccc"])
   , ("[abc]?[ab]?a?", ["","a","b","c","aa","ab","ba","ac","ca","aaa","abc","cab"],
       ["bbc","abcabcabcabc","aaaaa","abcdefg","x"])
+  , ("[a-m]{10}", ["abcdefghij","cdfmeadljb","eeeeeeeeee","aaaabbbaaa"],
+      ["a","mnopqrstuv","abcdefghix","aaaaaaaaan", "abcdefghijklm"])
   , ("[a-m]{1,10}", ["a","b","m","cde","abcdefghij","cdfmeadljb","eeeeeeeeee","aaaabbb"], -- slow!
-      ["","xyz","abcdefghix","abcdefghijklm","abcdefghijklm","aabbccddeeffgghhiijj","abcx"])
+      ["","xyz","abcdefghix","abcdefghijklm","aabbccddeeffgghhiijj","abcx"])
   ]
 
 totals :: [(String, [String])]

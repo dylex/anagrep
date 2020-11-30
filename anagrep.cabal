@@ -1,7 +1,7 @@
 cabal-version:       >=1.10
 name:                anagrep
 version:             0.1.0.0
-synopsis:            Test strings for anagrams of (restricted) regular expressions
+synopsis:            Test strings for anagrams (permutations) of regular expressions
 description:         
   Based on a regular expression, determine if any permutation of a string matches it.  For example, "lt[aeiou]*" would match all words with one 'l', one 't', and vowels (like "elate", "tail", etc.).
   Regular expression parsing is based on regex-tdfa and generally follows those semantics, but not all regular expression features are supported.  For example, applying modifiers to alternatives (such as "(abc|def)*") will not work.
@@ -21,7 +21,7 @@ library
   exposed-modules:
     Text.Regex.Anagram
   build-depends:       
-    base,
+    base < 5,
     containers,
     regex-tdfa,
     case-insensitive
@@ -32,7 +32,7 @@ executable anagrep
   hs-source-dirs: src
   main-is:  anagrep.hs
   build-depends:       
-    base,
+    base < 5,
     anagrep,
     bytestring,
     case-insensitive
@@ -44,7 +44,7 @@ test-suite test
   hs-source-dirs: test
   main-is:  Main.hs
   build-depends:
-    base,
+    base < 5,
     anagrep,
     hspec,
     QuickCheck

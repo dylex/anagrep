@@ -5,9 +5,11 @@ module Text.Regex.Anagram
   ( Anagrex
   , parseAnagrex
   , testAnagrex
+  , testAnagrexCI
   ) where
 
 import           Control.Monad (MonadPlus, mfilter, foldM)
+import           Data.CaseInsensitive (CI, FoldCase(..), foldedCase)
 import           Data.Foldable (fold, foldlM)
 import qualified Data.IntMap.Strict as M
 import qualified Data.IntSet as S
@@ -26,8 +28,10 @@ concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
 -- concatMapM = foldMapM
 concatMapM f = fmap concat . mapM f
 
+-- |We use Int for all Chars, mainly to use IntSet.
 type Chr = Int
 type ChrSet = S.IntSet
+-- |A permuted string: a bag of characters mapping character to repeat count.
 type ChrStr = M.IntMap Int
 
 chrSet :: Set.Set Char -> ChrSet
@@ -36,11 +40,12 @@ chrSet = S.fromAscList . map fromEnum . Set.toAscList
 chrStr :: String -> ChrStr
 chrStr = M.fromListWith (+) . map ((, 1) . fromEnum)
 
+-- |Match for a single character.
 data PatChar
-  = PatChr !Chr
-  | PatSet ChrSet
-  | PatNot ChrSet
-  deriving (Eq, Show)
+  = PatChr !Chr -- ^literal single character
+  | PatSet ChrSet -- ^one of a set "[a-z]"
+  | PatNot ChrSet -- ^not one of a set "[^a-z]"
+  deriving (Eq)
 
 instance Semigroup PatChar where
   PatSet s <> x | S.null s = x
@@ -67,13 +72,12 @@ instance Ord PatChar where
   compare (PatSet _) (PatNot _) = LT
   compare (PatNot _) (PatSet _) = GT
 
--- |A processed regular expression pattern to match anagrams.
 data Pat = Pat
-  { patChars :: ChrStr -- ^required fixed chars
-  , patSets :: [PatChar] -- ^other requried sets
+  { patChars :: ChrStr -- ^required fixed chars (grouped 'PatChr')
+  , patSets :: [PatChar] -- ^other requried sets (no 'PatChr')
   , patOpts :: [PatChar] -- ^optional chars (x?)
   , patStars :: PatChar -- ^extra chars (x*)
-  } deriving (Show)
+  }
 
 instance Semigroup Pat where
   Pat a1 l1 o1 e1 <> Pat a2 l2 o2 e2 =
@@ -83,8 +87,9 @@ instance Semigroup Pat where
 instance Monoid Pat where
   mempty = Pat M.empty [] [] mempty
 
+-- |A processed regular expression pattern to match anagrams.
+-- Represented as an (expanded) list of alternative 'Pat's.
 newtype Anagrex = Anagrex [Pat]
-  deriving (Show)
 
 unChars :: ChrStr -> [PatChar]
 unChars = concatMap (uncurry $ flip replicate . PatChr) . M.toList where
@@ -96,6 +101,9 @@ charPat p = mempty{ patSets = [p] }
 makeChar :: R.Pattern -> Maybe PatChar
 makeChar R.PDot{} = return $ PatNot S.empty
 makeChar R.PChar{ R.getPatternChar = c } = return $ PatChr $ fromEnum c
+makeChar R.PEscape{ R.getPatternChar = c }
+  | c `notElem` "`'<>bB" = return $ PatChr $ fromEnum c
+-- TODO: use R.decodePatternSet
 makeChar R.PAny{ R.getPatternSet = R.PatternSet (Just s) Nothing Nothing Nothing } =
   return $ PatSet $ chrSet s
 makeChar R.PAnyNot{ R.getPatternSet = R.PatternSet (Just s) Nothing Nothing Nothing } =
@@ -119,7 +127,7 @@ makePattern (R.PQuest r) = do
 makePattern (R.PPlus r) = do
   p <- makePattern r
   return p{ patStars = starPat p }
-makePattern (R.PStar True r) = do
+makePattern (R.PStar _ r) = do
   p <- makePattern r
   return mempty{ patStars = starPat p }
 makePattern (R.PBound i j' r) = do
@@ -148,7 +156,7 @@ makeAlts r = return <$> makePattern r
 parseAnagrex :: String -> Either String Anagrex
 parseAnagrex r = case R.parseRegex r of
   Left e -> Left (show e)
-  Right (p, _) -> maybe (Left "unsupported regex") (Right . Anagrex) $
+  Right (p, _) -> maybe (Left "regexp contains features not supported for anagrams") (Right . Anagrex) $
     makeAlts $ R.dfsPattern R.simplify' p
 
 maybePred :: Int -> Maybe Int
@@ -190,3 +198,25 @@ testPat (Pat a l o e) m0 = any M.null $ do
 -- |Check if any permutations of a string matches a parsed regular expression.  Always matches the full string.
 testAnagrex :: Anagrex -> String -> Bool
 testAnagrex (Anagrex l) s = any (flip testPat $ chrStr s) l
+
+foldCaseChr :: Chr -> Chr
+foldCaseChr c = fromEnum (foldCase (toEnum c :: Char))
+
+instance FoldCase PatChar where
+  foldCase (PatChr c) = PatChr (foldCaseChr c)
+  foldCase (PatSet s) = PatSet (S.map foldCaseChr s)
+  foldCase (PatNot s) = PatNot (S.map foldCaseChr s)
+
+instance FoldCase Pat where
+  foldCase (Pat a l o e) = Pat
+    (M.mapKeysWith (+) foldCaseChr a)
+    (map foldCase l)
+    (map foldCase o)
+    (foldCase e)
+
+instance FoldCase Anagrex where
+  foldCase (Anagrex l) = Anagrex (map foldCase l)
+
+-- |Test a case-insensitive pattern against a case-insensitive string.  You can also directly use 'foldCase' on both the pattern and the string to test.
+testAnagrexCI :: CI Anagrex -> CI String -> Bool
+testAnagrexCI p = testAnagrex (foldedCase p) . foldedCase

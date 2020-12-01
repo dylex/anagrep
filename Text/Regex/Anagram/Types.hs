@@ -1,13 +1,18 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Text.Regex.Anagram.Types
   where
 
+import           Control.Arrow (first)
 import           Data.CaseInsensitive (FoldCase(..))
 import qualified Data.IntMap.Strict as M
 import qualified Data.IntSet as S
 import           Data.Ord (comparing)
 import           Data.Semigroup (stimes)
+import qualified Data.Vector as V
 
 data Inf a
   = Fin !a
@@ -65,31 +70,44 @@ instance Ord PatChar where
   compare (PatSet s1) (PatSet s2) = comparing S.size s1 s2 <> compare s1 s2
   compare (PatNot s1) (PatNot s2) = comparing S.size s2 s1 <> compare s1 s2
   compare (PatChr _) _ = LT
-  compare _ (PatChr _) = GT
   compare (PatSet _) (PatNot _) = LT
-  compare (PatNot _) (PatSet _) = GT
+  compare _ _ = GT
 
-data Pat = Pat
-  { patChars :: ChrStr -- ^required fixed chars (grouped 'PatChr')
-  , patSets :: [PatChar] -- ^other requried sets (no 'PatChr')
-  , patOpts :: [PatChar] -- ^optional chars (x?)
-  , patStars :: PatChar -- ^extra chars (x*)
-  , patMin :: Int -- ^minimum length (optimization)
-  , patMax :: Inf Int -- ^maximum length (optimization)
+-- |The parsed characters from a regex pattern
+data PatCharsOf f = PatChars
+  { patReqs :: f PatChar -- ^requried chars
+  , patOpts :: f PatChar -- ^optional chars (x?)
+  , patStar :: PatChar -- ^extra chars (x*)
+  }
+
+type PatChars = PatCharsOf []
+
+deriving instance Show PatChars
+
+instance Semigroup PatChars where
+  PatChars l1 o1 e1 <> PatChars l2 o2 e2 =
+    PatChars (l1 <> l2) (o1 <> o2) (e1 <> e2)
+  stimes n (PatChars l o e) = PatChars (stimes n l) (stimes n o) e
+
+instance Monoid PatChars where
+  mempty = PatChars mempty mempty mempty
+
+newtype Graph a = Graph{ unGraph :: V.Vector (a, S.IntSet) }
+  deriving (Show)
+
+deriving instance Show (PatCharsOf Graph)
+
+-- |Compiled matching pattern
+data AnaPat = AnaPat
+  { patFixed :: ChrStr -- ^required fixed chars (grouped 'PatChr')
+  , patChars :: PatCharsOf Graph
+  , patMin :: Int -- ^minimum length
+  , patMax :: Inf Int -- ^maximum length
   } deriving (Show)
 
-instance Semigroup Pat where
-  Pat a1 l1 o1 e1 i1 j1 <> Pat a2 l2 o2 e2 i2 j2 =
-    Pat (M.unionWith (+) a1 a2) (l1 ++ l2) (o1 ++ o2) (e1 <> e2) (i1 + i2) (j1 + j2)
-  stimes n (Pat a l o e i j) = Pat (fmap (n'*) a) (stimes n l) (stimes n o) e (n'*i) (Fin n'*j)
-    where n' = fromIntegral n
-
-instance Monoid Pat where
-  mempty = Pat M.empty [] [] mempty 0 0
-
 -- |A processed regular expression pattern to match anagrams.
--- Represented as an (expanded) list of alternative 'Pat's.
-newtype Anagrex = Anagrex [Pat]
+-- Represented as an (expanded) list of alternative 'AnaPat's.
+newtype Anagrex = Anagrex [AnaPat]
   deriving (Show)
 
 
@@ -101,12 +119,21 @@ instance FoldCase PatChar where
   foldCase (PatSet s) = PatSet (S.map foldCaseChr s)
   foldCase (PatNot s) = PatNot (S.map foldCaseChr s)
 
-instance FoldCase Pat where
-  foldCase p@Pat{..} = p
-    { patChars = M.mapKeysWith (+) foldCaseChr patChars
-    , patSets = map foldCase patSets
-    , patOpts = map foldCase patOpts
-    , patStars = foldCase patStars
+instance Functor f => FoldCase (PatCharsOf f) where
+  foldCase p@PatChars{..} = p
+    { patReqs = fmap foldCase patReqs
+    , patOpts = fmap foldCase patOpts
+    , patStar = foldCase patStar
+    }
+
+-- XXX really should be re-made
+instance Functor Graph where
+  fmap f (Graph v) = Graph $ fmap (first f) v
+
+instance FoldCase AnaPat where
+  foldCase p@AnaPat{..} = p
+    { patFixed = M.mapKeysWith (+) foldCaseChr patFixed
+    , patChars = foldCase patChars -- XXX
     }
 
 instance FoldCase Anagrex where

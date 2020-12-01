@@ -24,11 +24,12 @@ library
     Text.Regex.Anagram.Types
     Text.Regex.Anagram.Util
     Text.Regex.Anagram.Parse
-    Text.Regex.Anagram.Optimize
+    Text.Regex.Anagram.Compile
     Text.Regex.Anagram.Test
   build-depends:       
     base < 5,
     containers,
+    vector,
     regex-tdfa,
     case-insensitive
   default-language:    Haskell2010

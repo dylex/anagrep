@@ -7,6 +7,7 @@ module Text.Regex.Anagram.Test
 import           Control.Monad (MonadPlus, mfilter, foldM)
 import qualified Data.IntMap.Strict as M
 import           Data.Maybe (isJust)
+import qualified Data.Vector as V
 
 import Text.Regex.Anagram.Types
 import Text.Regex.Anagram.Util
@@ -40,16 +41,23 @@ takeChars (PatChr c) m = M.delete c m
 takeChars (PatSet s) m = M.withoutKeys m s
 takeChars (PatNot s) m = M.restrictKeys m s
 
-testPat :: Int -> ChrStr -> Pat -> Bool
-testPat l m0 Pat{..}
+tryChars :: Bool -> ChrStr -> Graph PatChar -> [ChrStr]
+tryChars opt m0 = V.ifoldM acc m0 . unGraph where
+  acc m i (c, p)
+    | opt = tc ++ [m]
+    | otherwise = tc where
+    tc = takeChar m c
+
+testPat :: Int -> ChrStr -> AnaPat -> Bool
+testPat l m0 AnaPat{ patChars = PatChars{..}, ..}
   | l < patMin = False
   | Fin l > patMax = False
   | otherwise = any M.null $ do
-  ma <- subtractStr' m0 patChars
-  ml <- foldM (                 takeChar)   ma patSets
-  mo <- foldM (\m -> (++ [m]) . takeChar m) ml patOpts
-  return $ takeChars patStars mo
+  ma <- subtractStr' m0 patFixed
+  ml <- tryChars False ma patReqs
+  mo <- tryChars True  ml patOpts
+  return $ takeChars patStar mo
 
 -- |Check if any permutations of a string matches a parsed regular expression.  Always matches the full string.
 testAnagrex :: Anagrex -> String -> Bool
-testAnagrex (Anagrex l) s = any (testPat (length s) (chrStr s)) l
+testAnagrex (Anagrex l) s = any (testPat (length s) (chrStr $ map fromEnum s)) l

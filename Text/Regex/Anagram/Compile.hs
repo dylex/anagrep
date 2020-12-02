@@ -74,16 +74,21 @@ compilePat p@PatChars{..} = AnaPat
 compileAlts :: [PatChars] -> [AnaPat]
 compileAlts = map compilePat
 
+-- |Compile an already-parsed 'AnaPattern' into an 'Anagrex'.
 compileAnagrex :: AnaPattern -> Anagrex
 compileAnagrex (AnaPattern l) = Anagrex $ compileAlts l
 
--- |Build a regular expression for matching anagrams from a string, returning 'Left' error for invalid or unsupported regular expressions.  (Uses 'Text.Regex.TDFA.ReadRegex.parseRegex'.)
+-- |Build a regular expression for matching anagrams from a string, returning 'Left' error for invalid or unsupported regular expressions.
+-- (Uses 'Text.Regex.TDFA.ReadRegex.parseRegex'.)
+-- This works by first expanding out a list of alternative patterns (like @"a|(b(c|d))"@ into @["a","bc","bd"]@) and then creating optimized pattern represenations for each.
 makeAnagrex :: String -> Either String Anagrex
 makeAnagrex = fmap compileAnagrex . parseAnaPattern
 
 instance FoldCase AnaPat where
   foldCase AnaPat{ patUncompiled = p } = compilePat $ foldCase p
 
+-- |Used to create a case-insensitive version of a pattern.
+-- Note that this involves a re-compilation of the parsed 'AnaPattern'.  You can avoid this by using 'Text.Regex.Anagram.makeAnagrexCI'.
 instance FoldCase Anagrex where
   foldCase (Anagrex l) = Anagrex $ map foldCase l
 

@@ -18,4 +18,4 @@ jobs:
           key: ${{ runner.os }}-stack-${{ hashFiles('anagrep.cabal') }}-${{ hashFiles('stack.yaml') }}
           restore-keys: |
             ${{ runner.os }}-stack-
-      - run: stack build --test --system-ghc
+      - run: stack build --system-ghc --test --bench

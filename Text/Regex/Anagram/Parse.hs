@@ -17,8 +17,9 @@ import qualified Text.Regex.TDFA.ReadRegex as R
 import Text.Regex.Anagram.Types
 import Text.Regex.Anagram.Util
 
--- |A parsed regular expression pattern to match anagrams.
--- Represented as an (expanded) list of alternative 'PatChars's.
+-- |A parsed intermediate representation of regular expression pattern to match anagrams.
+-- This is exposed mainly to make case-insensitive matches more efficient, so that 'foldCase' can be performed on the 'AnaPattern' to avoid unnecessary compilation.
+-- Represented as an (expanded) list of alternative 'PatChars'.
 newtype AnaPattern = AnaPattern [PatChars]
   deriving (Show)
 

@@ -33,19 +33,26 @@ notChar (PatChr c) = PatNot (S.singleton c)
 notChar (PatSet s) = PatNot s
 notChar (PatNot s) = PatSet s
 
+intersectChr :: ChrSet -> PatChar -> PatChar
+intersectChr s p@(PatChr c)
+  | S.member c s = p
+  | otherwise = mempty
+intersectChr s (PatSet t) = PatSet $ S.intersection s t
+intersectChr s (PatNot n) = PatSet $ S.difference s n
+
+differenceChr :: ChrSet -> PatChar -> PatChar
+differenceChr n p@(PatChr c)
+  | S.member c n = mempty
+  | otherwise = p
+differenceChr n (PatSet s) = PatSet $ S.difference s n
+differenceChr n (PatNot m) = PatNot $ S.union m n
+
 intersectChar :: PatChar -> PatChar -> PatChar
+intersectChar (PatSet s) p =  intersectChr s p
+intersectChar (PatNot n) p = differenceChr n p
 intersectChar p@(PatChr c) (PatChr d)
   | c == d = p
   | otherwise = mempty
-intersectChar p@(PatChr c) (PatSet s)
-  | S.member c s = p
-  | otherwise = mempty
-intersectChar p@(PatChr c) (PatNot n)
-  | S.member c n = mempty
-  | otherwise = p
-intersectChar (PatSet s) (PatSet t) = PatSet $ S.intersection s t
-intersectChar (PatSet s) (PatNot n) = PatSet $ S.difference s n
-intersectChar (PatNot n) (PatNot m) = PatSet $ S.union n m
 intersectChar a b = intersectChar b a
 
 differenceChar :: PatChar -> PatChar -> PatChar

@@ -92,7 +92,7 @@ instance Semigroup PatChars where
 instance Monoid PatChars where
   mempty = PatChars mempty mempty mempty
 
-newtype Graph a = Graph{ unGraph :: V.Vector (a, S.IntSet) }
+newtype Graph a = Graph{ unGraph :: V.Vector (a, [Int]) }
   deriving (Show)
 
 deriving instance Show (PatCharsOf Graph)

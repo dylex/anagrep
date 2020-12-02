@@ -15,8 +15,6 @@ import Text.Regex.Anagram.Types
 import Text.Regex.Anagram.Util
 import Text.Regex.Anagram.Compile
 
-import Debug.Trace
-
 chrSet :: Set.Set Char -> ChrSet
 chrSet = S.fromAscList . map fromEnum . Set.toAscList
 

@@ -15,13 +15,13 @@ import Text.Regex.Anagram.Types
 import Text.Regex.Anagram.Util
 
 -- |Given a node count and a partial ordering (@before@) on a /sorted/ set of nodes (such that @before(node(i), node(j)) => i <= j@), construct a reduced (minimal) DAG
-graphReduction :: Int -> (Int -> Int -> Bool) -> V.Vector S.IntSet
+graphReduction :: Int -> (Int -> Int -> Bool) -> V.Vector [Int]
 graphReduction n before = V.map fst $ V.constructN n $ \v ->
-  let j = V.length v in V.ifoldr' (add j) (S.empty, S.singleton j) v
+  let j = V.length v in V.ifoldr' (add j) ([], S.singleton j) v
   where
   add j i (_, ic) rc@(r, c)
     | S.member i c = rc
-    | before i j = (S.insert i r, S.union c ic)
+    | before i j = (i : r, S.union c ic)
     | otherwise = rc
 
 charGraph :: [PatChar] -> Graph PatChar

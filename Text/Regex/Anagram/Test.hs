@@ -4,8 +4,10 @@ module Text.Regex.Anagram.Test
   ( testAnagrex
   ) where
 
-import           Control.Monad (MonadPlus, mfilter, foldM)
+import           Control.Arrow (second)
+import           Control.Monad (MonadPlus, mfilter)
 import qualified Data.IntMap.Strict as M
+import qualified Data.IntSet as S
 import           Data.Maybe (isJust)
 import qualified Data.Vector as V
 
@@ -25,16 +27,22 @@ subtractStr = M.mergeWithKey
 subtractStr' :: MonadPlus m => ChrStr -> ChrStr -> m ChrStr
 subtractStr' a b = mfilter (all (0 <)) $ return $ subtractStr a b
 
-subtractEach :: ChrStr -> M.IntMap a -> [ChrStr]
-subtractEach m = map (\c -> M.update maybePred c m) . M.keys
+mapAccum :: (a -> c -> (b, c)) -> c -> [a] -> [(b, c)]
+mapAccum _ _ [] = []
+mapAccum f z (a:l) = (b, z) : mapAccum f y l where
+  (b, y) = f a z
 
-takeChar :: ChrStr -> PatChar -> [ChrStr]
-takeChar m (PatChr c)
-  | isJust j = [m']
+subtractEach :: ChrStr -> M.IntMap a -> [(ChrStr, ChrSet)]
+subtractEach m = mapAccum (\c s -> (M.update maybePred c m, S.insert c s)) S.empty . M.keys
+
+takeChar :: ChrStr -> ChrSet -> PatChar -> [(ChrStr, ChrSet)]
+takeChar m excl (PatChr c)
+  | S.member c excl = []
+  | isJust j = [(m', S.empty)]
   | otherwise = [] where
   (j, m') = M.updateLookupWithKey (\_ -> maybePred) c m
-takeChar m (PatSet s) = subtractEach m $ M.restrictKeys m s
-takeChar m (PatNot s) = subtractEach m $ M.withoutKeys  m s
+takeChar m excl (PatSet s) = subtractEach m $ M.restrictKeys m $ S.difference s excl
+takeChar m excl (PatNot s) = subtractEach m $ M.withoutKeys  m $ S.union s excl
 
 takeChars :: PatChar -> M.IntMap a -> M.IntMap a
 takeChars (PatChr c) m = M.delete c m
@@ -42,11 +50,14 @@ takeChars (PatSet s) m = M.withoutKeys m s
 takeChars (PatNot s) m = M.restrictKeys m s
 
 tryChars :: Bool -> ChrStr -> Graph PatChar -> [ChrStr]
-tryChars opt m0 = V.ifoldM acc m0 . unGraph where
-  acc m i (c, p)
-    | opt = tc ++ [m]
-    | otherwise = tc where
-    tc = takeChar m c
+tryChars opt m0 = map fst . V.foldM acc (m0, V.empty) . unGraph where
+  acc (m, v) (c, p) = map (second $ V.snoc v . S.union excl) $ opts
+    where
+    excl = foldMap (v V.!) p
+    opts
+      | opt = tc ++ [(m, S.empty)]
+      | otherwise = tc
+    tc = takeChar m excl c
 
 testPat :: Int -> ChrStr -> AnaPat -> Bool
 testPat l m0 AnaPat{ patChars = PatChars{..}, ..}

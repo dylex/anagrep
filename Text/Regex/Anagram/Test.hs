@@ -6,11 +6,13 @@ module Text.Regex.Anagram.Test
 
 import           Control.Arrow (second)
 import           Control.Monad (MonadPlus, mfilter)
+import           Control.Monad.ST (ST, runST)
 import           Data.Foldable (fold)
 import qualified Data.IntMap.Strict as M
 import qualified Data.IntSet as S
 import           Data.Maybe (isJust, isNothing)
 import qualified Data.Vector as V
+import qualified Data.Vector.Mutable as VM
 
 import Text.Regex.Anagram.Types
 import Text.Regex.Anagram.Util
@@ -54,7 +56,7 @@ tryChars :: Bool -> ChrStr -> Graph PatChar -> [ChrStr]
 tryChars opt m0 = map fst . V.foldM acc (m0, V.empty) . unGraph where
   acc (m, v) (c, p) = map (second $ V.snoc v . mappend excl) $ opts
     where
-    excl = foldMap (v V.!) p
+    excl = foldMap (V.unsafeIndex v) p
     opts
       | opt && isNothing excl = tc ++ [(m, Nothing)]
       | otherwise = tc
@@ -70,6 +72,48 @@ testPat l m0 AnaPat{ patChars = PatChars{..}, ..}
   mo <- tryChars True  ml patOpts
   return $ takeChars patStar mo
 
+tryEach :: Monad m => M.IntMap a -> (ChrSet -> ChrStr -> m Bool) -> ChrSet -> ChrStr -> m Bool
+tryEach ks next excl m = tryl (M.keys ks) excl where
+  tryl [] _ = return False
+  tryl (c:l) e = do
+    r <- next e $ M.update maybePred c m
+    if r then return r else tryl l $ S.insert c e
+
+tryChar :: Monad m => PatChar -> (ChrSet -> ChrStr -> m Bool) -> ChrSet -> ChrStr -> m Bool
+tryChar (PatChr c) next excl m
+  | S.member c excl = return False
+  | isJust j = next excl m'
+  | otherwise = return False where
+  (j, m') = M.updateLookupWithKey (\_ -> maybePred) c m
+tryChar (PatSet s) next excl m = tryEach (M.restrictKeys m $ S.difference s excl) next excl m
+tryChar (PatNot s) next excl m = tryEach (M.withoutKeys  m $ S.union      s excl) next excl m
+
+tryChars' :: Bool -> Graph PatChar -> (ChrStr -> ST s Bool) -> ChrStr -> ST s Bool
+tryChars' opt (Graph gr) next m0 = do
+  v <- VM.new (V.length gr)
+  let tryl [] m = next m
+      tryl ((i, (c, p)):l) m = do
+        excl <- foldMapM (VM.unsafeRead v) p
+        let trye e m' = do
+              VM.unsafeWrite v i e
+              tryl l m'
+        r <- tryChar c (trye . Just) (fold excl) m
+        if r || not opt || isJust excl then return r else
+          trye Nothing m
+  tryl (V.toList $ V.indexed gr) m0
+
+testPat' :: Int -> ChrStr -> AnaPat -> Bool
+testPat' l m0 AnaPat{ patChars = PatChars{..}, ..}
+  | l < patMin = False
+  | Fin l > patMax = False
+  | any (0 >) ma = False
+  | otherwise = runST $ do
+  tryChars' False patReqs
+    (tryChars' True patOpts $
+      return . M.null . takeChars patStar)
+    ma where
+  ma = subtractStr m0 patFixed
+
 -- |Check if any permutations of a string matches a parsed regular expression.  Always matches the full string.
 testAnagrex :: Anagrex -> String -> Bool
-testAnagrex (Anagrex l) s = any (testPat (length s) (chrStr $ map fromEnum s)) l
+testAnagrex (Anagrex l) s = any (testPat' (length s) (chrStr $ map fromEnum s)) l

@@ -3,11 +3,16 @@
 module Text.Regex.Anagram.Util
   where
 
+import           Control.Applicative (Alternative, empty)
 import           Data.Foldable (foldlM)
 import qualified Data.IntMap.Strict as M
 import qualified Data.IntSet as S
 
 import Text.Regex.Anagram.Types
+
+guard' :: Alternative m => Bool -> a -> m a
+guard' True = pure
+guard' False = const empty
 
 foldMapM :: (Monad m, Monoid b) => (a -> m b) -> [a] -> m b
 -- foldMapM f = fmap fold . mapM f

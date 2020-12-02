@@ -33,8 +33,9 @@ tests =
       ["a","mnopqrstuv","abcdefghix","aaaaaaaaan","abcdefghijklm"])
   , ("[a-m]{1,10}", ["a","b","m","cde","abcdefghij","cdfmeadljb","eeeeeeeeee","aaaabbb"],
       ["","xyz","abcdefghix","aaaaaxaaaa","abcdefghijklm","aabbccddeeffgghhiijj","abcx"])
-  , ("[0-9][0-8a][0-7a-b][0-6a-c][0-5a-d][0-4a-e][0-3a-f][0-2a-g][0-1a-h][0a-i]", ["0123456789", "123456789i", "0000000000", "abcdefghi9"],
-      ["1111111111","1234567899"])
+  , ("[a-m][a-ln][a-kn-o][a-jn-p][a-in-q][a-hn-r][a-gn-s][a-fn-t][a-en-u][a-dn-v][a-cn-w][a-bn-x][an-y][n-z]", ["abcdefghijklmn", "bcdefghijklmno", "mnopqrstuvwxyz"],
+      -- pathologically slow
+      ["aaaaaaaaaaaaaa","abcdefghijklm","nnnnnnnnnnnnn","abcdefghijklma"])
   , ("[0-9]?[0-8a]?[0-7a-b]?[0-6a-c]?[0-5a-d]?[0-4a-e]?[0-3a-f]?[0-2a-g]?[0-1a-h]?[0a-i]?", ["0123456789", "123456789i", "0000000000", "abcdefghi9", "000000000", "abcdefghi", "", "i", "fab9"],
       ["1111111111","1234567899"])
   ]

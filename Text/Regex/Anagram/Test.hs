@@ -58,9 +58,9 @@ tryChars opt m0 (Graph g) = map fst $ V.foldM acc (m0, V.empty) g where
     where
     excl = foldMap (V.unsafeIndex v) p
     opts
-      | opt && isNothing excl = tc ++ [(m, Nothing)]
+      | opt && null tc = [(m, excl)]
       | otherwise = tc
-    tc = map (second Just) $ takeChar m (fold excl) c
+    tc = takeChar m excl c
 
 testPat :: Int -> ChrStr -> AnaPat -> Bool
 testPat l m0 AnaPat{ patChars = PatChars{..}, ..}
@@ -72,18 +72,20 @@ testPat l m0 AnaPat{ patChars = PatChars{..}, ..}
   mo <- tryChars True  ml patOpts
   return $ takeChars patStar mo
 
-tryEach :: Monad m => M.IntMap a -> (ChrSet -> ChrStr -> m Bool) -> ChrSet -> ChrStr -> m Bool
-tryEach ks next excl m = tryl (M.keys ks) excl where
-  tryl [] _ = return False
+tryEach :: Monad m => M.IntMap a -> (ChrSet -> ChrStr -> m Bool) -> ChrSet -> ChrStr -> m (Maybe Bool)
+tryEach ks next excl m
+  | M.null ks = return Nothing
+  | otherwise = tryl (M.keys ks) excl where
+  tryl [] _ = return $ Just False
   tryl (c:l) e = do
     r <- next e $ M.update maybePred c m
-    if r then return r else tryl l $ S.insert c e
+    if r then return $ Just r else tryl l $ S.insert c e
 
-tryChar :: Monad m => PatChar -> (ChrSet -> ChrStr -> m Bool) -> ChrSet -> ChrStr -> m Bool
+tryChar :: Monad m => PatChar -> (ChrSet -> ChrStr -> m Bool) -> ChrSet -> ChrStr -> m (Maybe Bool)
 tryChar (PatChr c) next excl m
-  | S.member c excl = return False
-  | isJust j = next excl m'
-  | otherwise = return False where
+  | S.member c excl = return Nothing
+  | isJust j = Just <$> next excl m'
+  | otherwise = return Nothing where
   (j, m') = M.updateLookupWithKey (\_ -> maybePred) c m
 tryChar (PatSet s) next excl m = tryEach (M.restrictKeys m $ S.difference s excl) next excl m
 tryChar (PatNot s) next excl m = tryEach (M.withoutKeys  m $ S.union      s excl) next excl m
@@ -92,14 +94,18 @@ tryChars' :: Bool -> Graph PatChar -> (ChrStr -> ST s Bool) -> ChrStr -> ST s Bo
 tryChars' opt (Graph gr) next m0 = do
   v <- VM.new (V.length gr)
   let tryl [] m = next m
-      tryl ((i, (c, p)):l) m = do
+      tryl ((i, (c, p)):l) m
+        | M.null m = return opt
+        | otherwise = do
         excl <- foldMapM (VM.unsafeRead v) p
         let trye e m' = do
               VM.unsafeWrite v i e
               tryl l m'
-        r <- tryChar c (trye . Just) (fold excl) m
-        if r || not opt || isJust excl then return r else
-          trye Nothing m
+        r <- tryChar c trye excl m
+        maybe
+          (if opt then trye S.empty m else return False)
+          return
+          r
   tryl (V.toList $ V.indexed gr) m0
 
 testPat' :: Int -> ChrStr -> AnaPat -> Bool
@@ -116,4 +122,4 @@ testPat' l m0 AnaPat{ patChars = PatChars{..}, ..}
 
 -- |Check if any permutations of a string matches a parsed regular expression.  Always matches the full string.
 testAnagrex :: Anagrex -> String -> Bool
-testAnagrex (Anagrex l) s = any (testPat' (length s) (chrStr $ map fromEnum s)) l
+testAnagrex (Anagrex l) s = any (testPat (length s) (chrStr $ map fromEnum s)) l

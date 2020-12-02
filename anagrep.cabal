@@ -5,7 +5,7 @@ synopsis:            Test strings for anagrams (permutations) of regular express
 description:         
   Based on a regular expression, determine if any permutation of a string matches it.  For example, "lt[aeiou]*" would match all words with one 'l', one 't', and vowels (like "elate", "tail", etc.).
   Regular expression parsing is based on regex-tdfa and generally follows those semantics, but not all regular expression features are supported.  For example, applying modifiers to alternatives (such as "(abc|def)*") will not work.
-  Efficiency is the goal, but this problem is inherently expontential.
+  The goal is for matching to be as efficient as possible, considering this problem is inherently expontential, at the cost of somewhat expensive pattern compilation.
 license:             BSD3
 author:              Dylan Simon
 maintainer:          dylan@dylex.net

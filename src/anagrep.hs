@@ -1,7 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
 import qualified Data.ByteString.Lazy.Char8 as BSLC
-import           Data.CaseInsensitive (foldCase)
+import           Data.CaseInsensitive (FoldCase, foldCase)
 import qualified System.Console.GetOpt as Opt
 import           System.Environment (getArgs, getProgName)
 import           System.Exit (exitFailure)
@@ -30,7 +30,7 @@ main = do
   prog <- getProgName
   args <- getArgs
   (Opts{..}, pat, files) <- case Opt.getOpt Opt.Permute options args of
-    (o, r:f, []) -> case parseAnagrex r of
+    (o, r:f, []) -> case parseAnaPattern r of
       Right p -> return (foldl (flip ($)) defOpts o, p, f)
       Left e -> do
         hPutStrLn stderr e
@@ -39,9 +39,12 @@ main = do
       mapM_ (hPutStrLn stderr) e
       hPutStrLn stderr $ Opt.usageInfo ("Usage: " ++ prog ++ " REGEXP [FILE]...\nSearch for anagrams of REGEXP in each FILE (or stdin).") options
       exitFailure
-  let test
-        | optCI = testAnagrex (foldCase pat) . foldCase
-        | otherwise = testAnagrex pat
+  let ci :: FoldCase a => a -> a
+      ci
+        | optCI = foldCase
+        | otherwise = id
+      grex = compileAnagrex (ci pat)
+      test = testAnagrex grex . ci
       proc f
         | optText = mapM_ putStrLn . filter test . lines =<< maybe getContents readFile f
         | otherwise = mapM_ BSLC.putStrLn . filter (test . BSLC.unpack) . BSLC.lines =<< maybe BSLC.getContents BSLC.readFile f

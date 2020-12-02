@@ -6,7 +6,6 @@
 module Text.Regex.Anagram.Types
   where
 
-import           Control.Arrow (first)
 import           Data.CaseInsensitive (FoldCase(..))
 import qualified Data.IntMap.Strict as M
 import qualified Data.IntSet as S
@@ -82,6 +81,11 @@ data PatCharsOf f = PatChars
 
 type PatChars = PatCharsOf []
 
+-- |A parsed regular expression pattern to match anagrams.
+-- Represented as an (expanded) list of alternative 'PatChars's.
+newtype AnaPattern = AnaPattern [PatChars]
+  deriving (Show)
+
 deriving instance Show PatChars
 
 instance Semigroup PatChars where
@@ -92,20 +96,21 @@ instance Semigroup PatChars where
 instance Monoid PatChars where
   mempty = PatChars mempty mempty mempty
 
-newtype Graph a = Graph{ unGraph :: V.Vector (a, [Int]) }
+newtype Graph a = Graph (V.Vector (a, [Int]))
   deriving (Show)
 
 deriving instance Show (PatCharsOf Graph)
 
 -- |Compiled matching pattern
 data AnaPat = AnaPat
-  { patFixed :: ChrStr -- ^required fixed chars (grouped 'PatChr')
+  { {- patUncompiled :: PatChars -- ^original, uncompiled pattern (only for CI)
+  , -} patFixed :: ChrStr -- ^required fixed chars (grouped 'PatChr')
   , patChars :: PatCharsOf Graph
   , patMin :: Int -- ^minimum length
   , patMax :: Inf Int -- ^maximum length
   } deriving (Show)
 
--- |A processed regular expression pattern to match anagrams.
+-- |A compiled regular expression pattern to match anagrams.
 -- Represented as an (expanded) list of alternative 'AnaPat's.
 newtype Anagrex = Anagrex [AnaPat]
   deriving (Show)
@@ -126,16 +131,6 @@ instance Functor f => FoldCase (PatCharsOf f) where
     , patStar = foldCase patStar
     }
 
--- XXX really should be re-made
-instance Functor Graph where
-  fmap f (Graph v) = Graph $ fmap (first f) v
-
-instance FoldCase AnaPat where
-  foldCase p@AnaPat{..} = p
-    { patFixed = M.mapKeysWith (+) foldCaseChr patFixed
-    , patChars = foldCase patChars -- XXX
-    }
-
-instance FoldCase Anagrex where
-  foldCase (Anagrex l) = Anagrex (map foldCase l)
+instance FoldCase AnaPattern where
+  foldCase (AnaPattern l) = AnaPattern (map foldCase l)
 

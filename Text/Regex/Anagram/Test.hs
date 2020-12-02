@@ -53,7 +53,7 @@ takeChars (PatSet s) m = M.withoutKeys m s
 takeChars (PatNot s) m = M.restrictKeys m s
 
 tryChars :: Bool -> ChrStr -> Graph PatChar -> [ChrStr]
-tryChars opt m0 = map fst . V.foldM acc (m0, V.empty) . unGraph where
+tryChars opt m0 (Graph g) = map fst $ V.foldM acc (m0, V.empty) g where
   acc (m, v) (c, p) = map (second $ V.snoc v . mappend excl) $ opts
     where
     excl = foldMap (V.unsafeIndex v) p

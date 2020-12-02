@@ -29,9 +29,8 @@ charGraph l = Graph $ V.zip v $ graphReduction (V.length v) $ on subsetChar $ V.
   where
   v = V.fromList $ sort l
 
--- |Remove everything in patStars from patOpts
-filterStar :: PatChars -> AnaPat
-filterStar PatChars{..} = AnaPat
+compilePat :: PatChars -> AnaPat
+compilePat PatChars{..} = AnaPat
   { patFixed = chrStr fixed
   , patChars = PatChars
     { patReqs = charGraph reqs
@@ -50,11 +49,8 @@ filterStar PatChars{..} = AnaPat
   maybePatChr (PatChr c) = Just c
   maybePatChr _ = Nothing
 
-compilePat :: PatChars -> AnaPat
-compilePat = filterStar
-
 compileAlts :: [PatChars] -> [AnaPat]
 compileAlts = map compilePat
 
-compileAnagrex :: [PatChars] -> Anagrex
-compileAnagrex = Anagrex . compileAlts
+compileAnagrex :: AnaPattern -> Anagrex
+compileAnagrex (AnaPattern l) = Anagrex $ compileAlts l

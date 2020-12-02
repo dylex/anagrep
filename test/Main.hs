@@ -33,6 +33,10 @@ tests =
       ["a","mnopqrstuv","abcdefghix","aaaaaaaaan","abcdefghijklm"])
   , ("[a-m]{1,10}", ["a","b","m","cde","abcdefghij","cdfmeadljb","eeeeeeeeee","aaaabbb"],
       ["","xyz","abcdefghix","aaaaaxaaaa","abcdefghijklm","aabbccddeeffgghhiijj","abcx"])
+  , ("[0-9][0-8a][0-7a-b][0-6a-c][0-5a-d][0-4a-e][0-3a-f][0-2a-g][0-1a-h][0a-i]", ["0123456789", "123456789i", "0000000000", "abcdefghi9"],
+      ["1111111111","1234567899"])
+  , ("[0-9]?[0-8a]?[0-7a-b]?[0-6a-c]?[0-5a-d]?[0-4a-e]?[0-3a-f]?[0-2a-g]?[0-1a-h]?[0a-i]?", ["0123456789", "123456789i", "0000000000", "abcdefghi9", "000000000", "abcdefghi", "", "i", "fab9"],
+      ["1111111111","1234567899"])
   ]
 
 totals :: [(String, [String])]
@@ -44,6 +48,8 @@ totals =
   , ("[ab][ac]", ["aa","ac","ba","bc","ca","cb"])
   , ("a[ab]b", ["baa","aab","aba","abb","bba","bab"])
   , ("a[ab]?b?", ["a","ab","aa","baa","aab","aba","abb","bba","bab"])
+  , ("[ab]a?", ["a","b","aa","ab","ba"])
+  , ("[ab]{2}a?", ["aa","ab","ba","bb","aaa","aab","aba","baa","abb","bab","bba"])
   , ("(a|b)c", ["ac","ca","bc","cb"])
   , ("(ab|cd)", ["ab","ba","cd","dc"])
   , ("(a|b(b?|c))", ["a","b","bb","bc","cb"])
@@ -68,7 +74,7 @@ props =
 
 parse :: String -> (Anagrex -> Spec) -> Spec
 parse r t = describe ("pattern " ++ show r) $ do
-  let pp = parseAnagrex r
+  let pp = makeAnagrex r
       Right p = pp
   it "should parse" $ pp `shouldSatisfy` isRight
   t p

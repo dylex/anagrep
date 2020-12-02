@@ -1,7 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module Text.Regex.Anagram.Parse
-  ( parseAnagrex
+  ( parseAnaPattern
   ) where
 
 import           Data.Foldable (fold)
@@ -13,7 +13,6 @@ import qualified Text.Regex.TDFA.ReadRegex as R
 
 import Text.Regex.Anagram.Types
 import Text.Regex.Anagram.Util
-import Text.Regex.Anagram.Compile
 
 chrSet :: Set.Set Char -> ChrSet
 chrSet = S.fromAscList . map fromEnum . Set.toAscList
@@ -75,13 +74,10 @@ makeAlts (R.PConcat c) = cross <$> mapM makeAlts c where
     return (a <> b)
 makeAlts r = return <$> makePattern r
 
-makeAnagrex :: R.Pattern -> Maybe Anagrex
-makeAnagrex = fmap compileAnagrex . makeAlts
-
 -- |Parse a string as a regular expression for matching anagrams, returning 'Left' error for invalid or unsupported regular expressions.  (Uses 'R.parseRegex'.)
-parseAnagrex :: String -> Either String Anagrex
-parseAnagrex r = case R.parseRegex r of
+parseAnaPattern :: String -> Either String AnaPattern
+parseAnaPattern r = case R.parseRegex r of
   Left e -> Left (show e)
   Right (p, _) -> maybe (Left "regexp contains features not supported for anagrams")
-    Right $ makeAnagrex $ R.dfsPattern R.simplify' p
+    (Right . AnaPattern) $ makeAlts $ R.dfsPattern R.simplify' p
 

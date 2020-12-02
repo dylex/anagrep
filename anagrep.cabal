@@ -20,6 +20,7 @@ source-repository head
 library
   exposed-modules:
     Text.Regex.Anagram
+    -- Text.Regex.Anagram.Internal
   other-modules:
     Text.Regex.Anagram.Types
     Text.Regex.Anagram.Util

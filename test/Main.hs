@@ -25,12 +25,13 @@ tests =
       ["","a","ab","abc","aaa","bbb","ccc"])
   , ("[abc]?[ab]?a?", ["","a","b","c","aa","ab","ba","ac","ca","aaa","abc","cab"],
       ["bbc","abcabcabcabc","aaaaa","abcdefg","x"])
-  , ("[efg][def][cde][bcd][abc]", ["abcde","ccffc","gfedc"],
+  , ("[efg][def][cde][bcd][abc]", ["abcde","ccffc","gfedc","defbc"],
       ["","ddd","aaaaa","ccccc","cccae"])
+  , ("[efg][^def][cde][^bcd][abc]", ["abcde","ccffc","gfedc","defbc","cccae"],
+      ["","ddd","aaaaa","ccccc"])
   , ("[a-m]{10}", ["abcdefghij","cdfmeadljb","eeeeeeeeee","aaaabbbaaa"],
       ["a","mnopqrstuv","abcdefghix","aaaaaaaaan","abcdefghijklm"])
   , ("[a-m]{1,10}", ["a","b","m","cde","abcdefghij","cdfmeadljb","eeeeeeeeee","aaaabbb"],
-      -- slow!
       ["","xyz","abcdefghix","aaaaaxaaaa","abcdefghijklm","aabbccddeeffgghhiijj","abcx"])
   ]
 

@@ -6,9 +6,10 @@ module Text.Regex.Anagram.Test
 
 import           Control.Arrow (second)
 import           Control.Monad (MonadPlus, mfilter)
+import           Data.Foldable (fold)
 import qualified Data.IntMap.Strict as M
 import qualified Data.IntSet as S
-import           Data.Maybe (isJust)
+import           Data.Maybe (isJust, isNothing)
 import qualified Data.Vector as V
 
 import Text.Regex.Anagram.Types
@@ -51,13 +52,13 @@ takeChars (PatNot s) m = M.restrictKeys m s
 
 tryChars :: Bool -> ChrStr -> Graph PatChar -> [ChrStr]
 tryChars opt m0 = map fst . V.foldM acc (m0, V.empty) . unGraph where
-  acc (m, v) (c, p) = map (second $ V.snoc v . S.union excl) $ opts
+  acc (m, v) (c, p) = map (second $ V.snoc v . mappend excl) $ opts
     where
     excl = foldMap (v V.!) p
     opts
-      | opt = tc ++ [(m, S.empty)]
+      | opt && isNothing excl = tc ++ [(m, Nothing)]
       | otherwise = tc
-    tc = takeChar m excl c
+    tc = map (second Just) $ takeChar m (fold excl) c
 
 testPat :: Int -> ChrStr -> AnaPat -> Bool
 testPat l m0 AnaPat{ patChars = PatChars{..}, ..}

@@ -82,11 +82,6 @@ data PatCharsOf f = PatChars
 
 type PatChars = PatCharsOf []
 
--- |A parsed regular expression pattern to match anagrams.
--- Represented as an (expanded) list of alternative 'PatChars's.
-newtype AnaPattern = AnaPattern [PatChars]
-  deriving (Show)
-
 deriving instance Show PatChars
 
 instance Semigroup PatChars where
@@ -102,19 +97,6 @@ newtype Graph a = Graph (V.Vector (a, [Int]))
 
 deriving instance Show (PatCharsOf Graph)
 
--- |Compiled matching pattern
-data AnaPat = AnaPat
-  { {- patUncompiled :: PatChars -- ^original, uncompiled pattern (only for CI)
-  , -} patFixed :: ChrStr -- ^required fixed chars (grouped 'PatChr')
-  , patChars :: PatCharsOf Graph
-  , patMin :: Int -- ^minimum length
-  , patMax :: Inf Int -- ^maximum length
-  } deriving (Show)
-
--- |A compiled regular expression pattern to match anagrams.
--- Represented as an (expanded) list of alternative 'AnaPat's.
-newtype Anagrex = Anagrex [AnaPat]
-  deriving (Show)
 
 
 foldCaseChr :: Chr -> Chr
@@ -132,9 +114,6 @@ instance Functor f => FoldCase (PatCharsOf f) where
     , patStar = foldCase patStar
     }
 
-instance FoldCase AnaPattern where
-  foldCase (AnaPattern l) = AnaPattern (map foldCase l)
-
 instance NFData a => NFData (Inf a) where
   rnf (Fin a) = rnf a
   rnf Inf = ()
@@ -149,9 +128,3 @@ instance NFData a => NFData (Graph a) where
 
 instance NFData (PatCharsOf Graph) where
   rnf (PatChars l o s) = rnf l `seq` rnf o `seq` rnf s
-
-instance NFData AnaPat where
-  rnf (AnaPat f c i j) = rnf f `seq` rnf c `seq` rnf i `seq` rnf j
-
-instance NFData Anagrex where
-  rnf (Anagrex l) = rnf l

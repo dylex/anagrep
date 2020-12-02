@@ -30,7 +30,7 @@ main = do
   prog <- getProgName
   args <- getArgs
   (Opts{..}, pat, files) <- case Opt.getOpt Opt.Permute options args of
-    (o, r:f, []) -> case parseAnaPattern r of
+    (o, r:f, []) -> case makeAnagrex r of
       Right p -> return (foldl (flip ($)) defOpts o, p, f)
       Left e -> do
         hPutStrLn stderr e
@@ -43,7 +43,7 @@ main = do
       ci
         | optCI = foldCase
         | otherwise = id
-      grex = compileAnagrex (ci pat)
+      grex = ci pat
       test = testAnagrex grex . ci
       proc f
         | optText = mapM_ putStrLn . filter test . lines =<< maybe getContents readFile f

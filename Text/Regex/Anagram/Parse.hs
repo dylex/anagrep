@@ -1,18 +1,26 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module Text.Regex.Anagram.Parse
-  ( parseAnaPattern
+  ( AnaPattern(..)
+  , parseAnaPattern
   ) where
 
+import           Data.CaseInsensitive (FoldCase(..))
 import           Data.Foldable (fold)
 import qualified Data.IntSet as S
 import           Data.Semigroup (stimes)
 import qualified Data.Set as Set
+import           Data.String (IsString(..))
 import qualified Text.Regex.TDFA.Pattern as R
 import qualified Text.Regex.TDFA.ReadRegex as R
 
 import Text.Regex.Anagram.Types
 import Text.Regex.Anagram.Util
+
+-- |A parsed regular expression pattern to match anagrams.
+-- Represented as an (expanded) list of alternative 'PatChars's.
+newtype AnaPattern = AnaPattern [PatChars]
+  deriving (Show)
 
 chrSet :: Set.Set Char -> ChrSet
 chrSet = S.fromAscList . map fromEnum . Set.toAscList
@@ -81,3 +89,8 @@ parseAnaPattern r = case R.parseRegex r of
   Right (p, _) -> maybe (Left "regexp contains features not supported for anagrams")
     (Right . AnaPattern) $ makeAlts $ R.dfsPattern R.simplify' p
 
+instance FoldCase AnaPattern where
+  foldCase (AnaPattern l) = AnaPattern (map foldCase l)
+
+instance IsString AnaPattern where
+  fromString = either error id . parseAnaPattern

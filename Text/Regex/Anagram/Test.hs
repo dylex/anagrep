@@ -11,6 +11,7 @@ import qualified Data.Vector as V
 
 import Text.Regex.Anagram.Types
 import Text.Regex.Anagram.Util
+import Text.Regex.Anagram.Compile
 
 maybePred :: Int -> Maybe Int
 maybePred i

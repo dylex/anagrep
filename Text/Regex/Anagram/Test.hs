@@ -66,14 +66,20 @@ testPat :: Int -> ChrStr -> AnaPat -> Bool
 testPat l m0 AnaPat{ patChars = PatChars{..}, ..}
   | l < patMin = False
   | Fin l > patMax = False
-  | otherwise = any M.null $ do
-  ma <- subtractStr' m0 patFixed
+  | any (0 >) ma = False
+  | otherwise = or $ do
   ml <- tryChars False ma patReqs
   mo <- tryChars True  ml patOpts
-  return $ takeChars patStar mo
+  return $ M.null $ takeChars patStar mo
+  where
+  ma = subtractStr m0 patFixed
 
-tryEach :: Monad m => M.IntMap a -> (ChrSet -> ChrStr -> m Bool) -> ChrSet -> ChrStr -> m (Maybe Bool)
-tryEach ks next excl m
+
+
+
+
+tryEach' :: Monad m => M.IntMap a -> (ChrSet -> ChrStr -> m Bool) -> ChrSet -> ChrStr -> m (Maybe Bool)
+tryEach' ks next excl m
   | M.null ks = return Nothing
   | otherwise = tryl (M.keys ks) excl where
   tryl [] _ = return $ Just False
@@ -81,14 +87,14 @@ tryEach ks next excl m
     r <- next e $ M.update maybePred c m
     if r then return $ Just r else tryl l $ S.insert c e
 
-tryChar :: Monad m => PatChar -> (ChrSet -> ChrStr -> m Bool) -> ChrSet -> ChrStr -> m (Maybe Bool)
-tryChar (PatChr c) next excl m
+tryChar' :: Monad m => PatChar -> (ChrSet -> ChrStr -> m Bool) -> ChrSet -> ChrStr -> m (Maybe Bool)
+tryChar' (PatChr c) next excl m
   | S.member c excl = return Nothing
   | isJust j = Just <$> next excl m'
   | otherwise = return Nothing where
   (j, m') = M.updateLookupWithKey (\_ -> maybePred) c m
-tryChar (PatSet s) next excl m = tryEach (M.restrictKeys m $ S.difference s excl) next excl m
-tryChar (PatNot s) next excl m = tryEach (M.withoutKeys  m $ S.union      s excl) next excl m
+tryChar' (PatSet s) next excl m = tryEach' (M.restrictKeys m $ S.difference s excl) next excl m
+tryChar' (PatNot s) next excl m = tryEach' (M.withoutKeys  m $ S.union      s excl) next excl m
 
 tryChars' :: Bool -> Graph PatChar -> (ChrStr -> ST s Bool) -> ChrStr -> ST s Bool
 tryChars' opt (Graph gr) next m0 = do
@@ -101,7 +107,7 @@ tryChars' opt (Graph gr) next m0 = do
         let trye e m' = do
               VM.unsafeWrite v i e
               tryl l m'
-        r <- tryChar c trye excl m
+        r <- tryChar' c trye excl m
         maybe
           (if opt then trye S.empty m else return False)
           return

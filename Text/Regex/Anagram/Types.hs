@@ -6,6 +6,7 @@
 module Text.Regex.Anagram.Types
   where
 
+import           Control.DeepSeq (NFData(..))
 import           Data.CaseInsensitive (FoldCase(..))
 import qualified Data.IntMap.Strict as M
 import qualified Data.IntSet as S
@@ -134,3 +135,23 @@ instance Functor f => FoldCase (PatCharsOf f) where
 instance FoldCase AnaPattern where
   foldCase (AnaPattern l) = AnaPattern (map foldCase l)
 
+instance NFData a => NFData (Inf a) where
+  rnf (Fin a) = rnf a
+  rnf Inf = ()
+
+instance NFData PatChar where
+  rnf (PatChr c) = rnf c
+  rnf (PatSet s) = rnf s
+  rnf (PatNot n) = rnf n
+
+instance NFData a => NFData (Graph a) where
+  rnf (Graph g) = rnf g
+
+instance NFData (PatCharsOf Graph) where
+  rnf (PatChars l o s) = rnf l `seq` rnf o `seq` rnf s
+
+instance NFData AnaPat where
+  rnf (AnaPat f c i j) = rnf f `seq` rnf c `seq` rnf i `seq` rnf j
+
+instance NFData Anagrex where
+  rnf (Anagrex l) = rnf l

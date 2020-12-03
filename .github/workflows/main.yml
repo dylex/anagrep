@@ -12,6 +12,7 @@ jobs:
         with:
           ghc-version: '8.8.4'
           enable-stack: true
+      - run: sudo apt-get install wamerican-small
       - uses: actions/cache@v1
         with:
           path: ~/.stack

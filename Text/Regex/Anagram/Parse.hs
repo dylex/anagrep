@@ -6,9 +6,7 @@ module Text.Regex.Anagram.Parse
   ) where
 
 import           Data.CaseInsensitive (FoldCase(..))
-import           Data.Foldable (fold)
 import qualified Data.IntSet as S
-import           Data.Semigroup (stimes)
 import qualified Data.Set as Set
 import           Data.String (IsString(..))
 import qualified Text.Regex.TDFA.Pattern as R
@@ -41,32 +39,26 @@ makeChar R.PAnyNot{ R.getPatternSet = R.PatternSet (Just s) Nothing Nothing Noth
   return $ PatNot $ chrSet s
 makeChar _ = Nothing
 
-starPat :: PatChars -> PatChar
-starPat PatChars{..} = fold patReqs <> fold patOpts <> patStar
-
-questPat :: PatChars -> [PatChar]
-questPat PatChars{..} = patReqs ++ patOpts
-
 makePattern :: R.Pattern -> Maybe PatChars
 makePattern (R.PGroup _ r) = makePattern r
 makePattern (R.PNonCapture r) = makePattern r
 makePattern (R.POr [r]) = makePattern r
 makePattern (R.PConcat l) = foldMapM makePattern l
 makePattern (R.PQuest r) = do
-  p <- makePattern r
-  return mempty{ patOpts = questPat p, patStar = patStar p }
+  p <- makeChar r
+  return mempty{ patOpts = [p] }
 makePattern (R.PPlus r) = do
-  p <- makePattern r
-  return p{ patStar = starPat p }
+  p <- makeChar r
+  return mempty{ patReqs = [p], patStar = p }
 makePattern (R.PStar _ r) = do
-  p <- makePattern r
-  return mempty{ patStar = starPat p }
+  p <- makeChar r
+  return mempty{ patStar = p }
 makePattern (R.PBound i j' r) = do
-  p <- makePattern r
-  let ip = stimes i p
+  p <- makeChar r
+  let ip = mempty{ patReqs = replicate i p }
   return $ maybe
-    ip{ patStar = starPat p }
-    (\j -> ip{ patOpts = patOpts ip ++ stimes (j - i) (questPat p) })
+    ip{ patStar = p }
+    (\j -> ip{ patOpts = replicate (j - i) p })
     j'
 makePattern R.PEmpty = return mempty
 makePattern r = charPat <$> makeChar r

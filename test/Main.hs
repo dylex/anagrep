@@ -34,8 +34,12 @@ tests =
       ["","ddd","aaaaa","ccccc"])
   , (False, "[a-m]{10}", ["abcdefghij","cdfmeadljb","eeeeeeeeee","aaaabbbaaa"],
       ["a","mnopqrstuv","abcdefghix","aaaaaaaaan","abcdefghijklm"])
+  , (False, "[a-m]{10}a?", ["abcdefghij","cdfmeadljb","aeeeeeeeeee","aaaabbbaaa","abcdefghijk"],
+      ["a","mnopqrstuv","abcdefghix","aaaaaaaaan","abcdefghijklm","abcdefghij1"])
   , (False, "[a-m]{1,10}", ["a","b","m","cde","abcdefghij","cdfmeadljb","eeeeeeeeee","aaaabbb"],
       ["","xyz","abcdefghix","aaaaaxaaaa","abcdefghijklm","aabbccddeeffgghhiijj","abcx"])
+  , (False, "[a-m]{13,26}", ["abcdefghijklm","cdfmeadljbjmeab","eeeeeeeeeeeeeeeeeeee","aaaabbbaaaccccaaddddaa","abcdefghijklmmlkjihgfedcba"],
+      ["a","mnopqrstuvwxyz","abcdefghijklmabcdefgh1","aaaaaaaaaaaaaaaan","abcdefghijklmmmmmmmmmmn"])
   , (False, "[a-m][a-ln][a-kn-o][a-jn-p][a-in-q][a-hn-r][a-gn-s][a-fn-t][a-en-u][a-dn-v][a-cn-w][a-bn-x][an-y][n-z]", ["abcdefghijklmn", "bcdefghijklmno", "mnopqrstuvwxyz"],
       -- pathologically slow
       ["aaaaaaaaaaaaaa","abcdefghijklm","nnnnnnnnnnnnn","abcdefghijklma"])

@@ -27,6 +27,7 @@ library
     Text.Regex.Anagram.Parse
     Text.Regex.Anagram.Compile
     Text.Regex.Anagram.Test
+    Text.Regex.Anagram.Matrix
   build-depends:       
     base < 5,
     containers,

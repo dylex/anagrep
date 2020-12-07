@@ -14,6 +14,8 @@ import           Data.Ord (comparing)
 import           Data.Semigroup (stimes)
 import qualified Data.Vector as V
 
+type RLE a = [(a, Int)]
+
 data Inf a
   = Fin !a
   | Inf

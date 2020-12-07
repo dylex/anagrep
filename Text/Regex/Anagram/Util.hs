@@ -4,9 +4,11 @@ module Text.Regex.Anagram.Util
   where
 
 import           Control.Applicative (Alternative, empty)
+import           Control.Arrow ((&&&))
 import           Data.Foldable (foldlM)
 import qualified Data.IntMap.Strict as M
 import qualified Data.IntSet as S
+import           Data.List (group)
 
 import Text.Regex.Anagram.Types
 
@@ -22,6 +24,9 @@ concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
 -- concatMapM = foldMapM
 concatMapM f = fmap concat . mapM f
 
+rle :: Eq a => [a] -> RLE a
+rle = map (head &&& length) . group
+
 partitionMaybe :: (a -> Maybe b) -> [a] -> ([b], [a])
 partitionMaybe f = foldr sel ([], []) where
   sel x ~(j,n) = maybe (j,x:n) ((,n).(:j)) $ f x
@@ -32,6 +37,11 @@ chrStr = M.fromListWith (+) . map (, 1)
 nullChar :: PatChar -> Bool
 nullChar (PatSet s) = S.null s
 nullChar _ = False
+
+sizeChar :: PatChar -> Int
+sizeChar (PatChr _) = 1
+sizeChar (PatSet s) = S.size s
+sizeChar (PatNot n) = maxBound - S.size n
 
 notChar :: PatChar -> PatChar
 notChar (PatChr c) = PatNot (S.singleton c)

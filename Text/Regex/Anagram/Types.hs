@@ -14,7 +14,25 @@ import           Data.Ord (comparing)
 import           Data.Semigroup (stimes)
 import qualified Data.Vector as V
 
-type RLE a = [(a, Int)]
+-- |run-length encoding element (item and repeat count)
+data RL a = RL
+  { unRL :: !a
+  , rl :: !Int
+  } deriving (Eq, Ord, Show)
+
+instance Functor RL where
+  fmap f (RL a n) = RL (f a) n
+
+newtype RLEof f a = RLE{ unRLE :: f (RL a) }
+
+-- |run-length encoded list
+type RLE = RLEof []
+type RLEV = RLEof V.Vector
+
+deriving instance Show a => Show (RLE a)
+
+instance Functor f => Functor (RLEof f) where
+  fmap f (RLE l) = RLE $ fmap (fmap f) l
 
 data Inf a
   = Fin !a
@@ -85,6 +103,7 @@ data PatCharsOf f = PatChars
 type PatChars = PatCharsOf []
 
 deriving instance Show PatChars
+deriving instance Show (PatCharsOf RLE)
 
 instance Semigroup PatChars where
   PatChars l1 o1 e1 <> PatChars l2 o2 e2 =
@@ -93,12 +112,6 @@ instance Semigroup PatChars where
 
 instance Monoid PatChars where
   mempty = PatChars mempty mempty mempty
-
-newtype Graph a = Graph (V.Vector (a, [Int]))
-  deriving (Show)
-
-deriving instance Show (PatCharsOf Graph)
-
 
 
 foldCaseChr :: Chr -> Chr
@@ -116,17 +129,20 @@ instance Functor f => FoldCase (PatCharsOf f) where
     , patStar = foldCase patStar
     }
 
-instance NFData a => NFData (Inf a) where
-  rnf (Fin a) = rnf a
-  rnf Inf = ()
+instance NFData a => NFData (RL a) where
+  rnf (RL _ _) = ()
+
+instance NFData a => NFData (RLE a) where
+  rnf (RLE l) = rnf l
 
 instance NFData PatChar where
-  rnf (PatChr c) = rnf c
+  rnf (PatChr _) = ()
   rnf (PatSet s) = rnf s
   rnf (PatNot n) = rnf n
 
-instance NFData a => NFData (Graph a) where
-  rnf (Graph g) = rnf g
-
-instance NFData (PatCharsOf Graph) where
+instance NFData (PatCharsOf RLE) where
   rnf (PatChars l o s) = rnf l `seq` rnf o `seq` rnf s
+
+instance NFData a => NFData (Inf a) where
+  rnf (Fin a) = rnf a
+  rnf Inf = ()

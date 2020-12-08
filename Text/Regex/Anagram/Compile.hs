@@ -10,6 +10,8 @@ module Text.Regex.Anagram.Compile
 import           Control.DeepSeq (NFData(..))
 import           Control.Monad (mfilter)
 import           Data.CaseInsensitive (FoldCase(..))
+import           Data.Foldable (fold)
+import           Data.Functor.Identity (Identity(Identity))
 import qualified Data.IntSet as S
 import           Data.List (sort)
 import           Data.Maybe (mapMaybe)
@@ -23,6 +25,7 @@ import Text.Regex.Anagram.Parse
 data AnaPat = AnaPat
   { patUncompiled :: PatChars -- ^original, uncompiled pattern (only for CI)
   , patChars :: PatCharsOf RLE
+  , patSets :: PatCharsOf Identity
   , patMin :: Int -- ^minimum length
   , patMax :: Inf Int -- ^maximum length
   } deriving (Show)
@@ -40,12 +43,19 @@ compilePat p@PatChars{..} = AnaPat
     , patOpts = rle $ sort opts
     , patStar = patStar
     }
+  , patSets = PatChars
+    { patReqs = Identity rs
+    , patOpts = Identity os
+    , patStar = os <> patStar
+    }
   , patMin = rlen
   , patMax = case patStar of
       PatSet s | S.null s -> Fin $ rlen + length opts
       _ -> Inf
   }
   where
+  rs = fold patReqs
+  os = rs <> fold opts
   rlen = length patReqs
   opts = mapMaybe (mfilter (not . nullChar) . Just . intersectChar (notChar patStar)) patOpts
 
@@ -74,6 +84,6 @@ instance IsString Anagrex where
   fromString = either error id . makeAnagrex
 
 instance NFData AnaPat where
-  rnf (AnaPat _ c i j) = rnf c `seq` rnf i `seq` rnf j
+  rnf (AnaPat _ c s i j) = rnf c `seq` rnf s `seq` rnf i `seq` rnf j
 instance NFData Anagrex where
   rnf (Anagrex l) = rnf l

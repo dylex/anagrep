@@ -8,9 +8,10 @@ module Text.Regex.Anagram.Test
 
 import           Control.Arrow (second)
 import qualified Data.Bits as B
+import           Data.Functor.Identity (runIdentity)
 import qualified Data.IntMap.Strict as M
 import qualified Data.IntSet as S
-import           Data.List (sort, foldl')
+import           Data.List (foldl')
 import           Data.Ord (comparing)
 import qualified Data.Vector as V
 import           Numeric.Natural (Natural)
@@ -52,10 +53,10 @@ transpose (Matrix (RLE al) (RLE bl)) = Matrix
   where
   tp i b = (b, V.ifoldl' (\y j v -> if B.testBit (snd $ unRL v) i then B.setBit y j else y) mempty al)
 
-patMatrix :: [PatChar] -> RLEV Chr -> Matrix () Chr
-patMatrix l ch = Matrix (RLE $ V.map (fmap ((),)) pv) ch where
+patMatrix :: RLE PatChar -> RLEV Chr -> Matrix () Chr
+patMatrix l ch = Matrix (fmap ((),) pv) ch where
   si = M.fromAscList $ V.toList $ V.imap (\i (RL c _) -> (c,i)) $ unRLE ch
-  pv = V.fromList $ unRLE $ rle $ sort $ map vp l
+  pv = withRLE V.fromList $ sortRLE $ fmap vp l
   vp (PatChr c) = maybe mempty B.bit $ M.lookup c si
   vp (PatSet s) = M.foldl' B.setBit mempty $ M.restrictKeys si s
   vp (PatNot n) =
@@ -64,8 +65,8 @@ patMatrix l ch = Matrix (RLE $ V.map (fmap ((),)) pv) ch where
 
 dropPairs :: Matrix a b -> RLE (Int, RL b) -> Matrix a b
 dropPairs m jvrl = m
-  { matCols = RLE $ V.map (fmap $ second (jm B..&.)) $ unRLE $ matCols m
-  , matRows = RLE $ unRLE (matRows m) V.// map (\(RL (j, v) r) -> (j, v{ rl = rl v - r })) (unRLE jvrl)
+  { matCols = withRLE (V.map (fmap $ second (jm B..&.))) $ matCols m
+  , matRows = withRLE (V.// map (\(RL (j, v) r) -> (j, v{ rl = rl v - r })) (unRLE jvrl))$ matRows m
   }
   where
   jm = foldl' (\b (RL (j, RL _ jr) r) -> if jr == r then B.clearBit b j else b) (allBits $ matRows m) $ unRLE jvrl
@@ -89,10 +90,11 @@ subsets size list = map RLE $ ss size (rleLength list) (unRLE list) where
 
 tryMatrix :: (Show a, Show b) => Matrix a b -> [Matrix a b]
 tryMatrix m
+  | V.null (unRLE $ matCols m) = [m]
   | r == 0 = [m]
   | x == mempty = []
   | otherwise = do
-    let m' = m{ matCols = RLE $ (unRLE $ matCols m) V.// [(i, iv{ rl = 0 })] }
+    let m' = m{ matCols = withRLE (V.// [(i, iv{ rl = 0 })]) $ matCols m }
     s <- subsets (rl iv) vjlr
     tryMatrix $ dropPairs m' s
   where
@@ -101,33 +103,39 @@ tryMatrix m
   vjlr = RLE $ map (\j -> let jr = V.unsafeIndex (unRLE $ matRows m) j in RL (j, jr) (rl jr)) $
     findBits x
 
-testReq :: [PatChar] -> RLEV Chr -> [RLEV Chr]
-testReq [] s = [s]
-testReq l s
-  | V.null (unRLE s) = []
-  | otherwise = map matRows $
-    tryMatrix $ patMatrix l s
+testReq :: Matrix () Chr -> [RLEV Chr]
+testReq m = map matRows $ tryMatrix m
 
-testOpt :: [PatChar] -> RLEV Chr -> Bool
-testOpt _ (RLE s) | V.null s = True
-testOpt [] _ = False
-testOpt l s = any (V.all ((0 ==) . rl) . unRLE . matCols) $
-  tryMatrix $ transpose $ patMatrix l s
+testOpt :: Matrix Chr () -> RLEV Chr -> Bool
+testOpt m cv = any (V.all ((0 ==) . rl) . unRLE . matCols) $
+  tryMatrix m{ matCols = withRLE (V.zipWith zf $ unRLE $ matCols m) cv }
+  where
+  zf r r' = r{ rl = rl r' }
+    -- | c /= c' || r < r' = error "testOpt mismatch"
 
 takeChars :: PatChar -> RLEV Chr -> RLEV Chr
-takeChars p = RLE . V.filter (\(RL c r) -> r /= 0 && fp c) . unRLE where
+takeChars p = RLE . V.map fr . unRLE where
+  fr r@(RL _ 0) = r
+  fr r@(RL c _)
+    | fp c = r{ rl = 0 }
+    | otherwise = r
   fp = f p
-  f (PatChr c) = (c /=)
-  f (PatSet s) = (`S.notMember` s)
-  f (PatNot n) = (`S.member` n)
+  f (PatChr c) = (c ==)
+  f (PatSet s) = (`S.member` s)
+  f (PatNot n) = (`S.notMember` n)
 
 testPat :: Int -> ChrStr -> AnaPat -> Bool
-testPat l s AnaPat{ patUncompiled = p, .. }
+testPat l s AnaPat{ .. }
   | l < patMin = False
   | Fin l > patMax = False
+  | not $ allChrs (patStar patSets) s = False
   | otherwise =
-    any (testOpt (patOpts p) . takeChars (patStar p)) $
-      testReq (patReqs p) $ RLE $ V.fromList $ unRLE $ chrStrRLE s
+    any (testOpt opts . takeChars (patStar patChars)) $
+      testReq reqs
+  where
+  sv = withRLE V.fromList $ chrStrRLE $ intersectChrStr (runIdentity $ patOpts patSets) s
+  reqs = patMatrix (patReqs patChars) sv
+  opts = transpose $ patMatrix (patOpts patChars) sv
 
 -- |Check if any permutations of a string matches a parsed regular expression.  Always matches the full string.
 testAnagrex :: Anagrex -> String -> Bool

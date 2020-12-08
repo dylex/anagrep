@@ -33,6 +33,10 @@ partitionMaybe :: (a -> Maybe b) -> [a] -> ([b], [a])
 partitionMaybe f = foldr sel ([], []) where
   sel x ~(j,n) = maybe (j,x:n) ((,n).(:j)) $ f x
 
+{-# INLINE withRLE #-}
+withRLE :: (f (RL a) -> g (RL b)) -> RLEof f a -> RLEof g b
+withRLE f = RLE . f . unRLE
+
 rleLength :: RLE a -> Int
 rleLength = foldl (\l (RL _ r) -> l + r) 0 . unRLE
 
@@ -53,23 +57,20 @@ rleV = RLE . VG.unstream . VB.inplace rles VBS.toMax . VG.stream where
         VS.Skip s' -> return $ VS.Skip (m, s')
         VS.Done -> return $ maybe VS.Done (\r -> VS.Yield r (Nothing, s)) m
 
-reRLE :: Eq a => RLE a -> RLE a
-reRLE = RLE . map (\(RL x r:l) -> RL x (r + rleLength (RLE l))) . groupBy ((==) `on` unRL) . unRLE
-
 sortRLE :: Ord a => RLE a -> RLE a
-sortRLE = reRLE . RLE . sortOn unRL . unRLE
+sortRLE = withRLE $ map (\(RL x r:l) -> RL x (r + rleLength (RLE l))) . groupBy ((==) `on` unRL) . sortOn unRL
 
 trimRLE :: RLE a -> RLE a
-trimRLE = RLE . filter ((0 /=) . rl) . unRLE
+trimRLE = withRLE $ filter ((0 /=) . rl)
 
 trimRLEV :: RLEV a -> RLEV a
-trimRLEV = RLE . V.filter ((0 /=) . rl) . unRLE
+trimRLEV = withRLE $ V.filter ((0 /=) . rl)
 
 filterRLE :: (a -> Bool) -> RLE a -> RLE a
-filterRLE f = RLE . filter (f . unRL) . unRLE
+filterRLE f = withRLE $ filter (f . unRL)
 
 filterRLEV :: (a -> Bool) -> RLEV a -> RLEV a
-filterRLEV f = RLE . V.filter (f . unRL) . unRLE
+filterRLEV f = withRLE $ V.filter (f . unRL)
 
 chrStr :: [Chr] -> ChrStr
 chrStr = M.fromListWith (+) . map (, 1)
@@ -90,6 +91,14 @@ notChar :: PatChar -> PatChar
 notChar (PatChr c) = PatNot (S.singleton c)
 notChar (PatSet s) = PatNot s
 notChar (PatNot s) = PatSet s
+
+intersectChrStr :: PatChar -> ChrStr -> ChrStr
+intersectChrStr (PatSet s) t = M.restrictKeys t s
+intersectChrStr (PatNot n) t = M.withoutKeys t n
+intersectChrStr (PatChr c) t = foldMap (M.singleton c) $ M.lookup c t
+
+allChrs :: PatChar -> ChrStr -> Bool
+allChrs p = M.null . intersectChrStr (notChar p)
 
 intersectChr :: ChrSet -> PatChar -> PatChar
 intersectChr s p@(PatChr c)

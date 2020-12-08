@@ -6,8 +6,9 @@
 module Text.Regex.Anagram.Types
   where
 
-import           Control.DeepSeq (NFData(..))
+import           Control.DeepSeq (NFData(..), NFData1(..), rnf1)
 import           Data.CaseInsensitive (FoldCase(..))
+import           Data.Functor.Identity (Identity)
 import qualified Data.IntMap.Strict as M
 import qualified Data.IntSet as S
 import           Data.Ord (comparing)
@@ -105,6 +106,7 @@ type PatChars = PatCharsOf []
 
 deriving instance Show PatChars
 deriving instance Show (PatCharsOf RLE)
+deriving instance Show (PatCharsOf Identity)
 
 instance Semigroup PatChars where
   PatChars l1 o1 e1 <> PatChars l2 o2 e2 =
@@ -130,19 +132,19 @@ instance Functor f => FoldCase (PatCharsOf f) where
     , patStar = foldCase patStar
     }
 
-instance NFData a => NFData (RL a) where
-  rnf (RL _ _) = ()
+instance NFData1 RL where
+  liftRnf f (RL a _) = f a
 
-instance NFData a => NFData (RLE a) where
-  rnf (RLE l) = rnf l
+instance NFData1 f => NFData1 (RLEof f) where
+  liftRnf f (RLE l) = liftRnf (liftRnf f) l
 
 instance NFData PatChar where
   rnf (PatChr _) = ()
   rnf (PatSet s) = rnf s
   rnf (PatNot n) = rnf n
 
-instance NFData (PatCharsOf RLE) where
-  rnf (PatChars l o s) = rnf l `seq` rnf o `seq` rnf s
+instance NFData1 f => NFData (PatCharsOf f) where
+  rnf (PatChars l o s) = rnf1 l `seq` rnf1 o `seq` rnf s
 
 instance NFData a => NFData (Inf a) where
   rnf (Fin a) = rnf a

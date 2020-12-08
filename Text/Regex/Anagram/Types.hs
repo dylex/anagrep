@@ -30,6 +30,7 @@ type RLE = RLEof []
 type RLEV = RLEof V.Vector
 
 deriving instance Show a => Show (RLE a)
+deriving instance Show a => Show (RLEV a)
 
 instance Functor f => Functor (RLEof f) where
   fmap f (RLE l) = RLE $ fmap (fmap f) l

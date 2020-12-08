@@ -59,8 +59,17 @@ reRLE = RLE . map (\(RL x r:l) -> RL x (r + rleLength (RLE l))) . groupBy ((==) 
 sortRLE :: Ord a => RLE a -> RLE a
 sortRLE = reRLE . RLE . sortOn unRL . unRLE
 
+trimRLE :: RLE a -> RLE a
+trimRLE = RLE . filter ((0 /=) . rl) . unRLE
+
+trimRLEV :: RLEV a -> RLEV a
+trimRLEV = RLE . V.filter ((0 /=) . rl) . unRLE
+
 filterRLE :: (a -> Bool) -> RLE a -> RLE a
 filterRLE f = RLE . filter (f . unRL) . unRLE
+
+filterRLEV :: (a -> Bool) -> RLEV a -> RLEV a
+filterRLEV f = RLE . V.filter (f . unRL) . unRLE
 
 chrStr :: [Chr] -> ChrStr
 chrStr = M.fromListWith (+) . map (, 1)

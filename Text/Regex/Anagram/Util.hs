@@ -9,6 +9,11 @@ import           Data.Function (on)
 import qualified Data.IntMap.Strict as M
 import qualified Data.IntSet as S
 import           Data.List (group, groupBy, sortOn)
+import qualified Data.Vector as V
+import qualified Data.Vector.Fusion.Bundle as VB
+import qualified Data.Vector.Fusion.Bundle.Size as VBS
+import qualified Data.Vector.Fusion.Stream.Monadic as VS
+import qualified Data.Vector.Generic as VG
 
 import Text.Regex.Anagram.Types
 
@@ -33,6 +38,20 @@ rleLength = foldl (\l (RL _ r) -> l + r) 0 . unRLE
 
 rle :: Eq a => [a] -> RLE a
 rle = RLE . map (\(x:l) -> RL x (succ $ length l)) . group
+
+rleV :: Eq a => V.Vector a -> RLEV a
+rleV = RLE . VG.unstream . VB.inplace rles VBS.toMax . VG.stream where
+  rles (VS.Stream step st) = VS.Stream step' (Nothing, st) where
+    step' (m, s) = do
+      t <- step s
+      case t of
+        VS.Yield x s' -> case m of
+          Nothing -> return $ VS.Skip (Just (RL x 1), s')
+          Just r@(RL y n)
+            | x == y -> return $ VS.Skip (Just (RL x $ succ n), s')
+            | otherwise -> return $ VS.Yield r (Just (RL x 1), s')
+        VS.Skip s' -> return $ VS.Skip (m, s')
+        VS.Done -> return $ maybe VS.Done (\r -> VS.Yield r (Nothing, s)) m
 
 reRLE :: Eq a => RLE a -> RLE a
 reRLE = RLE . map (\(RL x r:l) -> RL x (r + rleLength (RLE l))) . groupBy ((==) `on` unRL) . unRLE

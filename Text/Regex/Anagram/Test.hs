@@ -48,25 +48,23 @@ data Matrix a b = Matrix
 
 transpose :: Matrix a b -> Matrix b a
 transpose (Matrix (RLE al) (RLE bl)) = Matrix
-  (RLE $ V.imap (\i -> fmap (tp i)) bl)
+  (RLE $ V.imap (fmap . tp) bl)
   (RLE $ V.map (fmap fst) al)
   where
   tp i b = (b, V.ifoldl' (\y j v -> if B.testBit (snd $ unRL v) i then B.setBit y j else y) mempty al)
 
-patMatrix :: RLE PatChar -> RLEV Chr -> Matrix () Chr
-patMatrix l ch = Matrix (fmap ((),) pv) ch where
-  si = M.fromAscList $ V.toList $ V.imap (\i (RL c _) -> (c,i)) $ unRLE ch
+patMatrix :: RLE PatChar -> RLEV Chr -> M.IntMap Int -> Matrix () Chr
+patMatrix l ch si = Matrix (fmap ((),) pv) ch where
   pv = withRLE V.fromList $ sortRLE $ fmap vp l
   vp (PatChr c) = maybe mempty B.bit $ M.lookup c si
-  vp (PatSet s) = M.foldl' B.setBit mempty $ M.restrictKeys si s
-  vp (PatNot n) =
+  vp (PatSet s) = M.foldl' B.setBit   mempty       $ M.restrictKeys si s
+  vp (PatNot n) = M.foldl' B.clearBit (allBits ch) $ M.restrictKeys si n
     -- M.foldl' B.setBit mempty $ M.withoutKeys si n
-    M.foldl' B.clearBit (allBits ch) $ M.restrictKeys si n
 
 dropPairs :: Matrix a b -> RLE (Int, RL b) -> Matrix a b
 dropPairs m jvrl = m
   { matCols = withRLE (V.map (fmap $ second (jm B..&.))) $ matCols m
-  , matRows = withRLE (V.// map (\(RL (j, v) r) -> (j, v{ rl = rl v - r })) (unRLE jvrl))$ matRows m
+  , matRows = withRLE (V.// map (\(RL (j, v) r) -> (j, v{ rl = rl v - r })) (unRLE jvrl)) $ matRows m
   }
   where
   jm = foldl' (\b (RL (j, RL _ jr) r) -> if jr == r then B.clearBit b j else b) (allBits $ matRows m) $ unRLE jvrl
@@ -77,6 +75,7 @@ prioVec (RL _      0) _             = GT
 prioVec _             (RL _      0) = LT
 prioVec (RL (_, a) _) (RL (_, b) _) = compare a b
 
+-- |All subsets of a given length (choose p)
 subsets :: Int -> RLE a -> [RLE a]
 subsets size list = map RLE $ ss size (rleLength list) (unRLE list) where
   ss 0 _ _ = [[]]
@@ -117,12 +116,12 @@ takeChars :: PatChar -> RLEV Chr -> RLEV Chr
 takeChars p = RLE . V.map fr . unRLE where
   fr r@(RL _ 0) = r
   fr r@(RL c _)
-    | fp c = r{ rl = 0 }
+    | f c = r{ rl = 0 }
     | otherwise = r
-  fp = f p
-  f (PatChr c) = (c ==)
-  f (PatSet s) = (`S.member` s)
-  f (PatNot n) = (`S.notMember` n)
+  f = case p of
+    PatChr c -> (c ==)
+    PatSet s -> (`S.member` s)
+    PatNot n -> (`S.notMember` n)
 
 testPat :: Int -> ChrStr -> AnaPat -> Bool
 testPat l s AnaPat{ .. }
@@ -134,8 +133,9 @@ testPat l s AnaPat{ .. }
       testReq reqs
   where
   sv = withRLE V.fromList $ chrStrRLE $ intersectChrStr (runIdentity $ patOpts patSets) s
-  reqs = patMatrix (patReqs patChars) sv
-  opts = transpose $ patMatrix (patOpts patChars) sv
+  si = M.fromAscList $ V.toList $ V.imap (\i (RL c _) -> (c,i)) $ unRLE sv
+  reqs = patMatrix (patReqs patChars) sv si
+  opts = transpose $ patMatrix (patOpts patChars) sv si
 
 -- |Check if any permutations of a string matches a parsed regular expression.  Always matches the full string.
 testAnagrex :: Anagrex -> String -> Bool

@@ -29,10 +29,6 @@ concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
 -- concatMapM = foldMapM
 concatMapM f = fmap concat . mapM f
 
-partitionMaybe :: (a -> Maybe b) -> [a] -> ([b], [a])
-partitionMaybe f = foldr sel ([], []) where
-  sel x ~(j,n) = maybe (j,x:n) ((,n).(:j)) $ f x
-
 {-# INLINE withRLE #-}
 withRLE :: (f (RL a) -> g (RL b)) -> RLEof f a -> RLEof g b
 withRLE f = RLE . f . unRLE
@@ -60,17 +56,8 @@ rleV = RLE . VG.unstream . VB.inplace rles VBS.toMax . VG.stream where
 sortRLE :: Ord a => RLE a -> RLE a
 sortRLE = withRLE $ map (\(RL x r:l) -> RL x (r + rleLength (RLE l))) . groupBy ((==) `on` unRL) . sortOn unRL
 
-trimRLE :: RLE a -> RLE a
-trimRLE = withRLE $ filter ((0 /=) . rl)
-
-trimRLEV :: RLEV a -> RLEV a
-trimRLEV = withRLE $ V.filter ((0 /=) . rl)
-
 filterRLE :: (a -> Bool) -> RLE a -> RLE a
 filterRLE f = withRLE $ filter (f . unRL)
-
-filterRLEV :: (a -> Bool) -> RLEV a -> RLEV a
-filterRLEV f = withRLE $ V.filter (f . unRL)
 
 chrStr :: [Chr] -> ChrStr
 chrStr = M.fromListWith (+) . map (, 1)
@@ -81,11 +68,6 @@ chrStrRLE = RLE . map (uncurry RL) . M.toList
 nullChar :: PatChar -> Bool
 nullChar (PatSet s) = S.null s
 nullChar _ = False
-
-sizeChar :: PatChar -> Int
-sizeChar (PatChr _) = 1
-sizeChar (PatSet s) = S.size s
-sizeChar (PatNot n) = maxBound - S.size n
 
 notChar :: PatChar -> PatChar
 notChar (PatChr c) = PatNot (S.singleton c)
@@ -121,16 +103,3 @@ intersectChar p@(PatChr c) (PatChr d)
   | c == d = p
   | otherwise = mempty
 intersectChar a b = intersectChar b a
-
-differenceChar :: PatChar -> PatChar -> PatChar
-differenceChar a b = intersectChar a (notChar b)
-
-subsetChar :: PatChar -> PatChar -> Bool
-subsetChar (PatChr c) (PatChr d) = c == d
-subsetChar (PatChr c) (PatSet s) = S.member c s
-subsetChar (PatChr c) (PatNot s) = S.notMember c s
-subsetChar (PatSet s) (PatChr c) = S.null $ S.delete c s
-subsetChar (PatSet s) (PatSet t) = S.isSubsetOf s t
-subsetChar (PatSet s) (PatNot n) = S.disjoint s n
-subsetChar (PatNot n) (PatNot m) = S.isSubsetOf m n
-subsetChar _ _ = False

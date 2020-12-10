@@ -17,10 +17,14 @@ source-repository head
   type:     git
   location: git://github.com/dylex/anagrep
 
+flag ghc
+  description: Enable ghc-specific optimizations (on internal Natural representation)
+  default: True
+
 library
   exposed-modules:
     Text.Regex.Anagram
-    -- Text.Regex.Anagram.Internal
+    Text.Regex.Anagram.Bits
   other-modules:
     Text.Regex.Anagram.Types
     Text.Regex.Anagram.Util
@@ -34,6 +38,8 @@ library
     regex-tdfa,
     case-insensitive,
     deepseq
+  if flag(ghc)
+    build-depends: ghc-prim, integer-gmp
   default-language:    Haskell2010
   ghc-options: -Wall
 

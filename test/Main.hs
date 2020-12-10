@@ -1,10 +1,13 @@
 import           Control.Monad (forM_)
+import qualified Data.Bits as B
 import qualified Data.CaseInsensitive as CI
 import           Data.Either (isRight)
+import           Numeric.Natural (Natural)
 import           Test.Hspec
 import qualified Test.QuickCheck as Q
 
 import Text.Regex.Anagram
+import qualified Text.Regex.Anagram.Bits as B
 
 tests :: [(Bool, String, [String], [String])]
 tests =
@@ -99,6 +102,9 @@ test True p s = testAnagrexCI p (CI.mk s)
 
 main :: IO ()
 main = hspec $ describe "Text.Regex.Anagram" $ do
+  describe "findBits" $ do
+    it "should find one bit" $ Q.forAll (Q.choose (0, 255)) $ \i -> B.findBits (B.bit i     :: Natural) Q.=== [i]
+    it "should find all bit" $ Q.forAll (Q.choose (0, 255)) $ \i -> B.findBits (B.allBits i :: Natural) Q.=== [0..pred i]
   forM_ tests $ \(ci, r, y, n) -> parse r $ \p -> do
     forM_ y $ \s -> it ("should match " ++ show s) $ test ci p s
     forM_ n $ \s -> it ("should not match " ++ show s) $ not $ test ci p s

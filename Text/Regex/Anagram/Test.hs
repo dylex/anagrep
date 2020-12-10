@@ -19,9 +19,10 @@ import           Numeric.Natural (Natural)
 import Text.Regex.Anagram.Types
 import Text.Regex.Anagram.Util
 import Text.Regex.Anagram.Compile
+import Text.Regex.Anagram.Bits
 
 newtype BitVec = BitVec{ unBitVec :: Natural }
-  deriving (Eq, B.Bits, Show)
+  deriving (Eq, B.Bits, FindBits, Show)
 
 instance Semigroup BitVec where
   BitVec x <> BitVec y = BitVec $ x B..|. y
@@ -31,15 +32,8 @@ instance Monoid BitVec where
 instance Ord BitVec where
   compare (BitVec x) (BitVec y) = comparing B.popCount x y <> compare x y
 
-allBits :: RLEV a -> BitVec
-allBits = BitVec . pred . B.bit . V.length . unRLE
-
-findBits :: BitVec -> [Int]
-findBits = fb 0 . unBitVec where
-  fb i x
-    | x == B.zeroBits = []
-    | B.testBit x i = i : fb (succ i) (B.clearBit x i)
-    | otherwise = fb (succ i) x
+allBitv :: RLEV a -> BitVec
+allBitv = BitVec . allBits . V.length . unRLE
 
 data Matrix a b = Matrix
   { matCols :: !(RLEV (a, BitVec))
@@ -58,7 +52,7 @@ patMatrix l ch si = Matrix (fmap ((),) pv) ch where
   pv = withRLE V.fromList $ sortRLE $ fmap vp l
   vp (PatChr c) = maybe mempty B.bit $ M.lookup c si
   vp (PatSet s) = M.foldl' B.setBit   mempty       $ M.restrictKeys si s
-  vp (PatNot n) = M.foldl' B.clearBit (allBits ch) $ M.restrictKeys si n
+  vp (PatNot n) = M.foldl' B.clearBit (allBitv ch) $ M.restrictKeys si n
     -- M.foldl' B.setBit mempty $ M.withoutKeys si n
 
 dropPairs :: Matrix a b -> RLE (Int, RL b) -> Matrix a b
@@ -67,7 +61,7 @@ dropPairs m jvrl = m
   , matRows = withRLE (V.// map (\(RL (j, v) r) -> (j, v{ rl = rl v - r })) (unRLE jvrl)) $ matRows m
   }
   where
-  jm = foldl' (\b (RL (j, RL _ jr) r) -> if jr == r then B.clearBit b j else b) (allBits $ matRows m) $ unRLE jvrl
+  jm = foldl' (\b (RL (j, RL _ jr) r) -> if jr == r then B.clearBit b j else b) (allBitv $ matRows m) $ unRLE jvrl
 
 prioVec :: RL (a, BitVec) -> RL (a, BitVec) -> Ordering
 prioVec (RL _      0) (RL _      0) = EQ

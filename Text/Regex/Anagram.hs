@@ -1,4 +1,4 @@
--- |The basic use is to first parse a regular expression string (like @"[mn]{2,5}[eio]+s?"@) into an 'Anagrex' with 'makeAnagrex'.
+-- |The basic use of this module is to first parse a regular expression string (like @"[mn]{2,5}[eio]+s?"@) into an 'Anagrex' with 'makeAnagrex'.
 -- This can then be used to efficiently test candidate strings with 'testAnagrex'.
 module Text.Regex.Anagram
   ( Anagrex

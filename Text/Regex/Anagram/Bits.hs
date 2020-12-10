@@ -1,3 +1,5 @@
+-- |Some extra functionality for Bits instances, specifically an optimized version of 'findBits' on 'Natural' (using 'countTrailingZeros').
+-- Mainly exposed for testing purposes, but may be useful on its own.
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE MagicHash #-}

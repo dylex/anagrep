@@ -37,7 +37,7 @@ main = do
         exitFailure
     (_, _, e) -> do
       mapM_ (hPutStrLn stderr) e
-      hPutStrLn stderr $ Opt.usageInfo ("Usage: " ++ prog ++ " REGEXP [FILE]...\nSearch for anagrams of REGEXP in each FILE (or stdin).") options
+      hPutStrLn stderr $ Opt.usageInfo ("Usage: " ++ prog ++ " REGEXP [FILE]...\nPrint lines in each FILE (or stdin) for which some permuatation (anagram) matches the given REGEXP.") options
       exitFailure
   let ci :: FoldCase a => a -> a
       ci

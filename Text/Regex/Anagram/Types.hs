@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -35,6 +36,9 @@ deriving instance Show a => Show (RLEV a)
 
 instance Functor f => Functor (RLEof f) where
   fmap f (RLE l) = RLE $ fmap (fmap f) l
+
+deriving instance Semigroup (RLE a)
+deriving instance Monoid (RLE a)
 
 data Inf a
   = Fin !a

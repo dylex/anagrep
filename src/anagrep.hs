@@ -37,7 +37,36 @@ main = do
         exitFailure
     (_, _, e) -> do
       mapM_ (hPutStrLn stderr) e
-      hPutStrLn stderr $ Opt.usageInfo ("Usage: " ++ prog ++ " REGEXP [FILE]...\nPrint lines in each FILE (or stdin) for which some permuatation (anagram) matches the given REGEXP.") options
+      hPutStrLn stderr $ Opt.usageInfo ("Usage: " ++ prog ++ " REGEXP [FILE]...\n\
+\Print lines in each FILE (or stdin) for which some permutation (anagram)\n\
+\matches the given REGEXP.  REGEXP is a restricted regular expression that can\n\
+\contain the following patterns:\n\
+\  Character matches\n\
+\    x         single literal character\n\
+\    [aein-z]  character set (any listed character)\n\
+\    [^a-mou]  negated character set (any character not listed)\n\
+\    .         any single character\n\
+\    \\x        escape single literal character (no special meanings)\n\
+\  Repeat modifiers - may only be applied to characters (above)\n\
+\    {N,M}     repeat character N-M times\n\
+\    {N,}      repeat character at least N times\n\
+\    {N}       equivalent to {N,N}\n\
+\    ?         equivalent to {0,1}\n\
+\    *         equivalent to {0,}\n\
+\    +         equivalent to {1,}\n\
+\  Combination\n\
+\    XY        concatenation matches pattern X and Y in either order\n\
+\    X|Y       alternation matches pattern X or Y\n\
+\    (X)       grouping (only useful for alternation - note that successive\n\
+\              grouped alternations involve a cross-product expansion and may\n\
+\              be slow)\n\
+\Other regular expression features are not currently supported.  Matching is\n\
+\always done on entire lines (like grep -x).\n\
+\\n\
+\Example: " ++ prog ++ " 'pq[aeiou]{4,} /usr/share/dict/words\n\
+\  > opaque\n\
+\\n\
+\Flags:") options
       exitFailure
   let ci :: FoldCase a => a -> a
       ci

@@ -1,0 +1,37 @@
+A Haskell library for matching permutations of regular expressions: http://hackage.haskell.org/package/anagrep
+
+And a command-line interface, useful for puzzle solving (e.g., which English word has one 'p', one 'q', and four vowels?):
+
+Usage: anagrep REGEXP [FILE]...
+Print lines in each FILE (or stdin) for which some permutation (anagram)
+matches the given REGEXP.  REGEXP is a restricted regular expression that can
+contain the following patterns:
+  Character matches
+    x         single literal character
+    [aein-z]  character set (any listed character)
+    [^a-mou]  negated character set (any character not listed)
+    .         any single character
+    \x        escape single literal character (no special meanings)
+  Repeat modifiers - may only be applied to characters (above)
+    {N,M}     repeat character N-M times
+    {N,}      repeat character at least N times
+    {N}       equivalent to {N,N}
+    ?         equivalent to {0,1}
+    *         equivalent to {0,}
+    +         equivalent to {1,}
+  Combination
+    XY        concatenation matches pattern X and Y in either order
+    X|Y       alternation matches pattern X or Y
+    (X)       grouping (only useful for alternation - note that successive
+              grouped alternations involve a cross-product expansion and may
+              be slow)
+Other regular expression features are not currently supported.  Matching is
+always done on entire lines (like grep -x).
+
+Example: anagrep 'pq[aeiou]{4} /usr/share/dict/words
+  > opaque
+
+Flags:
+  -b    treat input as raw byte sequence (uses locale encoding by default)
+  -i    ignore case distinctions in patterns and data
+

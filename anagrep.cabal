@@ -4,7 +4,7 @@ version:             0.1.0.0
 synopsis:            Find strings with permutations (anagrams) that match a regular expression
 description:         
   Given a regular expression, determine if it matches any permutation of a given string.  For example, @"lt[aeiou]*"@ would match all strings with one \'l\', one \'t\', and vowels (like \"elate\", \"tail\", \"tl\", etc.).
-  Regular expression parsing is based on <//hackage.haskell.org/package/regex-tdfa regex-tdfa> and generally follows those semantics, but not all regular expression features are supported.  For example, repeat modifiers cannot be applied to groups (such as "(abc)*").
+  Regular expression parsing is based on <//hackage.haskell.org/package/regex-tdfa regex-tdfa> and generally follows those semantics, but not all regular expression features are supported.  For example, repeat modifiers cannot be applied to groups (such as @"(abc)*"@).
   The goal is for matching to be fairly efficient in most cases, given that this problem is NP-complete.
 license:             BSD3
 author:              Dylan Simon
@@ -12,6 +12,7 @@ maintainer:          dylan@dylex.net
 copyright:           2020, Dylan Simon
 category:            Text
 build-type:          Simple
+extra-source-files:  README
 
 source-repository head
   type:     git

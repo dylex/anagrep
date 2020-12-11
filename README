@@ -28,7 +28,7 @@ contain the following patterns:
 Other regular expression features are not currently supported.  Matching is
 always done on entire lines (like grep -x).
 
-Example: anagrep 'pq[aeiou]{4} /usr/share/dict/words
+Example: anagrep 'pq[aeiou]{4}' /usr/share/dict/words
   > opaque
 
 Flags:

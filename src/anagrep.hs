@@ -63,7 +63,7 @@ main = do
 \Other regular expression features are not currently supported.  Matching is\n\
 \always done on entire lines (like grep -x).\n\
 \\n\
-\Example: " ++ prog ++ " 'pq[aeiou]{4,} /usr/share/dict/words\n\
+\Example: " ++ prog ++ " 'pq[aeiou]{4,}' /usr/share/dict/words\n\
 \  > opaque\n\
 \\n\
 \Flags:") options

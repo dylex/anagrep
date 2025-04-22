@@ -136,9 +136,13 @@ instance Functor f => FoldCase (PatCharsOf f) where
     , patStar = foldCase patStar
     }
 
+instance NFData a => NFData (RL a) where
+  rnf = rnf1
 instance NFData1 RL where
   liftRnf f (RL a _) = f a
 
+instance (NFData1 f, NFData a) => NFData (RLEof f a) where
+  rnf = rnf1
 instance NFData1 f => NFData1 (RLEof f) where
   liftRnf f (RLE l) = liftRnf (liftRnf f) l
 

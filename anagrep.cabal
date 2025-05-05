@@ -1,6 +1,6 @@
 cabal-version:       >=1.10
 name:                anagrep
-version:             0.1.0.0
+version:             0.1.0.1
 synopsis:            Find strings with permutations (anagrams) that match a regular expression
 description:         
   Given a regular expression, determine if it matches any permutation of a given string.  For example, @"lt[aeiou]*"@ would match all strings with one \'l\', one \'t\', and vowels (like \"elate\", \"tail\", \"tl\", etc.).
